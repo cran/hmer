@@ -115,14 +115,11 @@ punifs <- function(x, c = rep(0, length(x)), r = 1) {
 generate_new_runs <- function(ems, n_points, z,
                               method = c('lhs', 'line', 'importance'),
                               cutoff = 3,
-                              nth = ifelse(
-                                length(unique(
-                                  purrr::map_chr(ems, ~.$output_name))) > 10,
-                                2, 1),
+                              nth = 1,
                               plausible_set, verbose = interactive(),
                               cluster = FALSE, resample = 1, seek = 0,
                               c_tol = 0.5, i_tol = 0.01, to_file = NULL, ...) {
-  if (!is.null(to_file)) {
+  if (!is.null(to_file)) { #nocov start
     tryCatch(
       write.csv(data.frame(), file = to_file, row.names = FALSE),
       error = function(e) {
@@ -130,9 +127,24 @@ generate_new_runs <- function(ems, n_points, z,
         to_file <<- NULL
       }
     )
-  }
+  } #nocov end
   ems <- collect_emulators(ems)
   ranges <- getRanges(ems)
+  if (nth == 1) {
+    if (!is.null(ems$expectation))
+      nems <- length(unique(purrr::map_chr(
+        ems$expectation, ~.$output_name
+      )))
+    else if (!is.null(ems$mode1))
+      nems <- length(unique(purrr::map_chr(
+        ems$mode1$expectation, ~.$output_name
+      )))
+    else
+      nems <- length(unique(purrr::map_chr(
+        ems, ~.$output_name
+      )))
+    nth <- ifelse(nems > 10, 2, 1)
+  }
   possible_methods <- c('lhs', 'line', 'importance', 'slice', 'optical')
   which_methods <- possible_methods[possible_methods %in% method]
   n_current <- 0
@@ -140,7 +152,7 @@ generate_new_runs <- function(ems, n_points, z,
     warning(paste("Unrecognised method name(s)",
                   method[!method %in% possible_methods], "ignored."))
   if (missing(plausible_set) || 'lhs' %in% which_methods) {
-    if (verbose) cat("Proposing from LHS...\n")
+    if (verbose) cat("Proposing from LHS...\n") #nocov
     if (!cluster) {
       lh_gen <- lhs_gen(ems, ranges, max(n_points, 10*length(ranges)),
                         z, cutoff, nth, ...)
@@ -159,17 +171,20 @@ generate_new_runs <- function(ems, n_points, z,
           cluster_gen$points, z, n = nth)
         this_cutoff <- max(cluster_gen$cutoff,
                            sort(leftover_imps)[5*length(ranges)])
+        points <- cluster_gen$points[leftover_imps <= this_cutoff,]
       }
-      else this_cutoff <- cluster_gen$cutoff
-      points <- cluster_gen$points[leftover_imps <= this_cutoff,]
+      else {
+        points <- cluster_gen$points
+        this_cutoff <- cluster_gen$cutoff
+      }
     }
   }
   else {
     point_imps <- nth_implausible(ems, plausible_set, z, n = nth, max_imp = Inf)
     optimal_cut <- sort(point_imps)[5*length(ranges)]
     if (optimal_cut > cutoff && (optimal_cut - sort(point_imps)[1] < c_tol)) {
-      if (verbose) cat("Point proposal seems to be asymptoting around implausibility",
-                          round(optimal_cut, 3), "- terminating.\n")
+      if (verbose) cat("Point proposal seems to be asymptoting around implausibility", #nocov
+                          round(optimal_cut, 3), "- terminating.\n") #nocov
       recent_ems <- ems[!duplicated(purrr::map_chr(ems, ~.$output_name))]
       recent_imps <- do.call(
         'cbind.data.frame',
@@ -184,7 +199,7 @@ generate_new_runs <- function(ems, n_points, z,
       name <- value <- NULL
       plot_imps <- tidyr::pivot_longer(recent_imps, cols = everything())
       plot_imps$name <- factor(plot_imps$name, levels = names(recent_ems))
-      if (verbose) {
+      if (verbose) { #nocov start
         print(ggplot(data = plot_imps, aes(x = name, y = value)) +
           geom_boxplot() +
             labs(title = "Implausibility Boxplot",
@@ -192,10 +207,10 @@ generate_new_runs <- function(ems, n_points, z,
         cat("Inspect implausibility boxplot for problematic outputs,",
                   "and consider transforming them or",
                   "removing them from this wave.\n")
-      }
-      if (!is.null(to_file))
+      } #nocov end
+      if (!is.null(to_file)) #nocov start
         write.csv(plausible_set[point_imps <= optimal_cut,],
-                  file = to_file, row.names = FALSE)
+                  file = to_file, row.names = FALSE) #nocov end
       return(list(points = plausible_set[point_imps <= optimal_cut,],
                   cutoff = optimal_cut))
     }
@@ -210,43 +225,43 @@ generate_new_runs <- function(ems, n_points, z,
     warning("No non-implausible points found from initial step.")
     return(points)
   }
-  if (verbose) cat(n_current, " initial valid points generated for I=",
-                            round(this_cutoff, 3), "\n", sep = "")
+  if (verbose) cat(n_current, " initial valid points generated for I=", #nocov
+                            round(this_cutoff, 3), "\n", sep = "") #nocov
   if (!is.null(to_file)) write.csv(points, file = to_file, row.names = FALSE)
   if ("optical" %in% which_methods && nrow(points) < n_points) {
-    if (verbose) cat("Performing optical depth sampling...\n")
+    if (verbose) cat("Performing optical depth sampling...\n") #nocov
     points <- op_depth_gen(ems, ranges, n_points, z, cutoff = this_cutoff,
                            nth = nth, plausible_set = points,
                            verbose = verbose, ...)
-    if (verbose) cat("Optical depth sampling generated",
-                             nrow(points)-n_current, "more points.\n")
+    if (verbose) cat("Optical depth sampling generated", #nocov
+                             nrow(points)-n_current, "more points.\n") #nocov
     n_current <- nrow(points)
   }
   if (!is.null(to_file)) write.csv(points, file = to_file, row.names = FALSE)
   if ("line" %in% which_methods && nrow(points) < n_points) {
-    if (verbose) cat("Performing line sampling...\n")
+    if (verbose) cat("Performing line sampling...\n") #nocov
     points <- line_sample(ems, ranges, z, points,
                           cutoff = this_cutoff, nth = nth, ...)
-    if (verbose) cat("Line sampling generated",
-                        nrow(points)-n_current, "more points.\n")
+    if (verbose) cat("Line sampling generated", #nocov
+                        nrow(points)-n_current, "more points.\n") #nocov
     n_current <- nrow(points)
   }
   if ("slice" %in% which_methods) {
-    if (verbose) cat("Performing slice sampling...\n")
+    if (verbose) cat("Performing slice sampling...\n") #nocov
     spoints <- slice_gen(ems, ranges, n_points, z, points,
                          this_cutoff, nth, ...)
-    if (verbose) cat("Slice sampling generated",
-                        nrow(spoints)-nrow(points), "more points.\n")
+    if (verbose) cat("Slice sampling generated", #nocov
+                        nrow(spoints)-nrow(points), "more points.\n") #nocov
     points <- spoints
     n_current <- nrow(points)
   }
-  if (!is.null(to_file)) write.csv(points, file = to_file, row.names = FALSE)
+  if (!is.null(to_file)) write.csv(points, file = to_file, row.names = FALSE) #nocov
   if ("importance" %in% which_methods && nrow(points) < n_points) {
-    if (verbose) cat("Performing importance sampling...\n")
+    if (verbose) cat("Performing importance sampling...\n") #nocov
     points <- importance_sample(ems, n_points, z, points,
                                 this_cutoff, nth, to_file = to_file, ...)
-    if (verbose) cat("Importance sampling generated",
-                          nrow(points)-n_current, "more points.\n")
+    if (verbose) cat("Importance sampling generated", #nocov
+                          nrow(points)-n_current, "more points.\n") #nocov
     n_current <- nrow(points)
   }
   if (this_cutoff - cutoff > i_tol) {
@@ -263,10 +278,10 @@ generate_new_runs <- function(ems, n_points, z,
                                 to_file = to_file, chain.call = TRUE, ...)
   }
   else if (this_cutoff != cutoff) {
-    if (verbose)
+    if (verbose) #nocov start
       cat("Point implausibilities within tolerance.",
                   "Proposed points have maximum implausibility",
-                  round(this_cutoff, 3), "\n")
+                  round(this_cutoff, 3), "\n") #nocov end
   }
   if (!is.null(points$cutoff)) {
     cutoff <- points$cutoff
@@ -277,7 +292,7 @@ generate_new_runs <- function(ems, n_points, z,
        "line" %in% which_methods ||
        "slice" %in% which_methods) && resample > 0) {
     for (nsamp in 1:resample) {
-      if (verbose) cat(paste("Resample", nsamp, "\n"))
+      if (verbose) cat(paste("Resample", nsamp, "\n")) #nocov
       c_measure <- op <- NULL
       for (i in 1:1000) {
         tp <- points[sample(nrow(points),
@@ -293,43 +308,43 @@ generate_new_runs <- function(ems, n_points, z,
       points <- op
       n_current <- nrow(points)
       if ("line" %in% which_methods) {
-        if (verbose) cat("Performing line sampling...\n")
+        if (verbose) cat("Performing line sampling...\n") #nocov
         points <- line_sample(ems, ranges, z, points,
                               cutoff = cutoff, nth = nth, ...)
-        if (verbose) cat("Line sampling generated",
-                                 nrow(points)-n_current, "more points.\n")
-        if (!is.null(to_file)) write.csv(points, file = to_file,
-                                         row.names = FALSE)
+        if (verbose) cat("Line sampling generated", #nocov
+                                 nrow(points)-n_current, "more points.\n") #nocov
+        if (!is.null(to_file)) write.csv(points, file = to_file, #nocov
+                                         row.names = FALSE) #nocov
         n_current <- nrow(points)
       }
       if ("slice" %in% which_methods) {
-        if (verbose) cat("Performing slice sampling...\n")
+        if (verbose) cat("Performing slice sampling...\n") #nocov
         spoints <- slice_gen(ems, ranges, n_points, z, points,
                              cutoff, nth, ...)
-        if (verbose) cat("Slice sampling generated",
-                                 nrow(spoints)-nrow(points), "more points.\n")
+        if (verbose) cat("Slice sampling generated", #nocov
+                                 nrow(spoints)-nrow(points), "more points.\n") #nocov
         points <- spoints
-        if (!is.null(to_file)) write.csv(points, file = to_file,
-                                         row.names = FALSE)
+        if (!is.null(to_file)) write.csv(points, file = to_file, #nocov
+                                         row.names = FALSE) #nocov
         n_current <- nrow(points)
       }
       if ("importance" %in% which_methods && nrow(points) < n_points) {
-        if (verbose) cat("Performing importance sampling...\n")
+        if (verbose) cat("Performing importance sampling...\n") #nocov
         points <- importance_sample(ems, n_points, z, points, cutoff,
                                     nth, to_file = to_file, ...)
-        if (verbose) cat("Importance sampling generated",
-                                 nrow(points)-n_current, "more points.\n")
+        if (verbose) cat("Importance sampling generated", #nocov
+                                 nrow(points)-n_current, "more points.\n") #nocov
         n_current <- nrow(points)
       }
     }
   }
   if (seek > 0) {
-    if (verbose) cat("Searching for high-probability match points...\n")
+    if (verbose) cat("Searching for high-probability match points...\n") #nocov
     extra_points <- seek_good(ems, seek, z, points, cutoff = cutoff, ...)
   }
   else extra_points <- NULL
   if (nrow(points) > n_points - seek) {
-    if (verbose) cat("Selecting final points using maximin criterion...\n")
+    if (verbose) cat("Selecting final points using maximin criterion...\n") #nocov
     c_measure <- op <- NULL
     for (i in 1:1000) {
       tp <- points[sample(nrow(points), n_points-seek),]
@@ -346,8 +361,8 @@ generate_new_runs <- function(ems, n_points, z,
   chained <- list(...)[['chain.call']]
   if (!is.null(chained)) return(list(points = rbind(points, extra_points),
                                      cutoff = cutoff))
-  if(!is.null(to_file)) write.csv(rbind(points, extra_points),
-                                  file = to_file, row.names = FALSE)
+  if(!is.null(to_file)) write.csv(rbind(points, extra_points), #nocov
+                                  file = to_file, row.names = FALSE) #nocov
   return(rbind(points, extra_points))
 }
 
@@ -386,7 +401,16 @@ lhs_gen_cluster <- function(ems, ranges, n_points, z, cutoff = 3, nth = 1,
       do.call(
         'rbind',
         purrr::map(ems, ~.$active_vars))), names(ranges))
-  cluster_id <- Mclust(which_active, G = 1:2, verbose = FALSE)$classification
+  cluster_id <- tryCatch(
+    Mclust(which_active, G = 1:2, verbose = FALSE)$classification,
+    error = function(e) {
+      warning("Cannot distinguish two clusters in emulator active variables.")
+      return(NULL)
+    }
+  )
+  if (is.null(cluster_id) || length(unique(cluster_id)) == 1)
+    return(lhs_gen(ems, ranges, n_points, z,
+                   cutoff, nth, points.factor, ...))
   c1 <- ems[cluster_id == 1]
   c2 <- ems[cluster_id == 2]
   p1 <- unique(do.call(c, purrr::map(c1, ~names(ranges)[.$active_vars])))
@@ -400,12 +424,12 @@ lhs_gen_cluster <- function(ems, ranges, n_points, z, cutoff = 3, nth = 1,
     p1 <- unique(do.call(c, purrr::map(c1, ~names(ranges)[.$active_vars])))
     p2 <- unique(do.call(c, purrr::map(c2, ~names(ranges)[.$active_vars])))
   }
-  if (verbose) cat("Clusters determined. Cluster 1 has length",
+  if (verbose) cat("Clusters determined. Cluster 1 has length", #nocov start
                       length(c1), "with", length(p1),
                       "active variables; cluster 2 has length",
                       length(c2), "with", length(p2),
                       "active variables -", length(pn), "shared.\n")
-  if (verbose) cat("Proposing from clusters.\n")
+  if (verbose) cat("Proposing from clusters.\n") #nocov end
   lhs1 <- setNames(
     data.frame(2 * (lhs::randomLHS(n_points * 10, length(p1))-0.5)), p1)
   spare1 <- ranges[!names(ranges) %in% p1]
@@ -460,8 +484,8 @@ lhs_gen_cluster <- function(ems, ranges, n_points, z, cutoff = 3, nth = 1,
   valid2 <- second_stage(valid1, cutoff_current, p1, p2,
                          ranges, n_points, c2, z, nth)
   while (valid2$cutoff - cutoff_current > c_tol) {
-    if (verbose) cat("Cutoff increase to", valid2$cutoff,
-                          "- resampling from cluster 1.\n")
+    if (verbose) cat("Cutoff increase to", valid2$cutoff, #nocov
+                          "- resampling from cluster 1.\n") #nocov
     cutoff_current <- valid2$cutoff
     valid1 <- lhs1[imps1 <= cutoff_current,]
     valid2 <- second_stage(valid1, cutoff_current, p1, p2,
@@ -491,21 +515,21 @@ line_sample <- function(ems, ranges, z, s_points, n_lines = 20,
   s_lines <- s_lines[!duplicated(purrr::map_dbl(s_lines, ~.$d))]
   best_pts <- s_lines[order(purrr::map_dbl(s_lines, ~.$d),
                             decreasing = TRUE)][1:n_lines]
-  get_limits <- function(points) {
-    point_dist <- sqrt(sum((points[[1]]-points[[2]])^2))
-    range_dist <- sqrt(sum(purrr::map_dbl(ranges, ~(.[[2]]-.[[1]])^2)))
-    dist_ratio <- range_dist/point_dist
-    l_seq <- seq(1-dist_ratio, dist_ratio, length.out = 500)
-    line_points <- setNames(
-      do.call(
-        'rbind.data.frame',
-        purrr::map(
-          l_seq,
-          ~points[[1]] + .*(points[[2]]-points[[1]]))), names(ranges))
-    is_in_range <- in_range(line_points, ranges)
-    valid_ls <- l_seq[is_in_range]
-    return(c(valid_ls[1], valid_ls[length(valid_ls)]))
-  }
+  # get_limits <- function(points) {
+  #   point_dist <- sqrt(sum((points[[1]]-points[[2]])^2))
+  #   range_dist <- sqrt(sum(purrr::map_dbl(ranges, ~(.[[2]]-.[[1]])^2)))
+  #   dist_ratio <- range_dist/point_dist
+  #   l_seq <- seq(1-dist_ratio, dist_ratio, length.out = 500)
+  #   line_points <- setNames(
+  #     do.call(
+  #       'rbind.data.frame',
+  #       purrr::map(
+  #         l_seq,
+  #         ~points[[1]] + .*(points[[2]]-points[[1]]))), names(ranges))
+  #   is_in_range <- in_range(line_points, ranges)
+  #   valid_ls <- l_seq[is_in_range]
+  #   return(c(valid_ls[1], valid_ls[length(valid_ls)]))
+  # }
   samp_pts <- lapply(best_pts, function(x) {
     #these_lims <- get_limits(x)
     tryCatch(
@@ -640,8 +664,8 @@ importance_sample <- function(ems, n_points, z, s_points, cutoff = 3,
     new_points <- rbind(new_points, prop_points)
     uniqueness <- row.names(unique(signif(new_points, 7)))
     new_points <- new_points[uniqueness,]
-    if (!is.null(to_file))
-      write.csv(new_points, file = to_file, row.names = FALSE)
+    if (!is.null(to_file)) #nocov
+      write.csv(new_points, file = to_file, row.names = FALSE) #nocov
     accept_rate <- nrow(prop_points)/how_many
   }
   while (nrow(new_points) < n_points) {
@@ -650,8 +674,8 @@ importance_sample <- function(ems, n_points, z, s_points, cutoff = 3,
     new_points <- rbind(new_points, prop_points)
     uniqueness <- row.names(unique(signif(new_points, 7)))
     new_points <- new_points[uniqueness,]
-    if (!is.null(to_file)) write.csv(new_points,
-                                     file = to_file, row.names = FALSE)
+    if (!is.null(to_file)) write.csv(new_points, #nocov
+                                     file = to_file, row.names = FALSE) #nocov
   }
   return(new_points)
 }
@@ -781,7 +805,7 @@ op_depth_gen <- function(ems, ranges, n_points, z, n.runs = 100, cutoff = 3,
       matrix(out_stuff, nrow = n_points*10)), names(ranges))
   df <- df[nth_implausible(ems, df, z, n = nth, cutoff = cutoff),]
   if (nrow(df) > n_points) {
-    if(verbose) cat("Selecting final points using maximin criterion...\n")
+    if(verbose) cat("Selecting final points using maximin criterion...\n") #nocov
     c_measure <- op <- NULL
     for (i in 1:100) {
       tp <- df[sample(nrow(df), n_points),]
@@ -852,7 +876,7 @@ seek_good <- function(ems, n_points, z, plausible_set, cutoff = 3,
   probs <- get_prob(ems, point_set, z)
   o_points <- point_set[order(probs, decreasing = TRUE),]
   keep_points <- o_points[1:(10*n_points),]
-  row.names(keep_points) <- seq_along(keep_points)
+  row.names(keep_points) <- seq_len(nrow(keep_points))
   final_set <- select_minimal(keep_points, 1, n_points)
   return(final_set)
 }

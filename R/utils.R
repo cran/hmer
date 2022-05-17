@@ -18,12 +18,30 @@ scale_input <- function(x, r, forward = TRUE) {
     centers <- unlist(centers, use.names = F)
     scales <- unlist(scales, use.names = F)
   }
-  if (forward)
-    output <- (x-centers)/scales
-  else
-    output <- x * scales + centers
-  if (!"data.frame" %in% class(output))
-    return(data.frame(output))
+  if (forward) {
+    if(is.null(names(x)) && !is.null(dim(x))) {
+      output <- t(apply(
+        t(apply(x, 1, function(y) y - centers)),
+        1, function(z) z/scales))
+    }
+    else
+      output <- (x-centers)/scales
+  }
+  else {
+    if (is.null(names(x)) && !is.null(dim(x))) {
+      if (is.null(dim(x))) x <- matrix(x, ncol = 1)
+      output <- t(apply(
+        t(apply(x, 1, function(y) y * scales)),
+        1, function(z) z + centers
+      ))
+    }
+    else
+      output <- x * scales + centers
+  }
+  if (!"data.frame" %in% class(output)) {
+    output <- data.frame(output)
+    names(output) <- NULL
+  }
   return(output)
 }
 
@@ -57,7 +75,8 @@ eval_funcs <- function(funcs, points, ...) {
                     error = function(cond1) {
                       tryCatch(purrr::exec(funcs, points, ...),
                                error = function(cond2) {
-                                 cat(cond1, "\n", cond2, "\n")
+                                 cat(cond1$message, "\n", cond2$message, "\n")
+                                 stop()
                                })
                     }))
   }
@@ -67,17 +86,32 @@ eval_funcs <- function(funcs, points, ...) {
 # Inner modification of a function
 multiply_function <- function(f, mult) {
   func_body <- body(f)
-  if (typeof(func_body) != "language" || is.call(func_body))
-    body(f) <- substitute(mult * func_body)
-  else {
-    relevant <- body(f)[[length(body(f))]]
-    if (relevant[[1]] == "return") {
-      innards <- relevant[[2]]
-      body(f)[[length(body(f))]][[2]] <- substitute(mult * innards)
+  if (length(func_body) == 2) {
+    relev <- func_body[[2]]
+    if (is.language(relev) && !(is.symbol(relev) || is.double(relev))) {
+      innards <- relev[[2]]
+      body(f)[[2]][[2]] <- substitute(mult * innards)
     }
-    else
-      body(f)[[length(body(f))]] <- substitute(mult * relevant)
+    if (is.symbol(relev) || is.double(relev)) {
+      body(f)[[2]] <- substitute(mult * relev)
+    }
+    return(f)
   }
+  if (length(func_body) == 1) {
+    body(f) <- substitute(mult * func_body)
+    return(f)
+  }
+  relev <- func_body[[length(func_body)]]
+  if (is.language(relev) && !(is.symbol(relev) || is.double(relev))) {
+    innards <- relev[[2]]
+    body(f)[[length(func_body)]][[2]] <- substitute(mult * innards)
+    return(f)
+  }
+  if (is.symbol(relev) || is.double(relev)) {
+    body(f)[[length(func_body)]] <- substitute(mult * relev)
+    return(f)
+  }
+  warning("Function multiplication not successful. Returning original function.")
   return(f)
 }
 
@@ -223,15 +257,26 @@ collect_emulators <- function(emulators) {
     return(setNames(list(emulators), emulators$output_name))
   if (all(purrr::map_lgl(emulators, ~"Emulator" %in% class(.)))) {
     em_names <- purrr::map_chr(emulators, ~.$output_name)
+    em_range_lengths <- purrr::map_dbl(emulators, ~length(.$ranges))
     em_range_prods <- purrr::map_dbl(emulators,
                                      ~prod(purrr::map_dbl(.$ranges, diff)))
-    return(setNames(emulators[order(em_range_prods)], em_names))
+    return(setNames(emulators[order(em_range_lengths, em_range_prods, decreasing = c(TRUE, FALSE))], em_names))
   }
-  if (!is.null(emulators[[1]]$expectation)) {
-    exp_ems <- purrr::map(emulators, ~.$expectation)
-    var_ems <- purrr::map(emulators, ~.$variance)
+  if ((!is.null(emulators$expectation) && sum(names(emulators) == "expectation") == 1) || (!is.null(emulators$mode1) && sum(names(emulators) == "mode1") == 1))
+    return(emulators)
+  if ("expectation" %in% names(emulators)) {
+    exp_ems <- c(emulators[names(emulators) == "expectation"], use.names = FALSE)
+    var_ems <- c(emulators[names(emulators) == "variance"], use.names = FALSE)
     return(list(expectation = collect_emulators(exp_ems),
                 variance = collect_emulators(var_ems)))
+  }
+  if ("mode1" %in% names(emulators)) {
+    m1ems <- c(emulators[names(emulators) == "mode1"], use.names = FALSE)
+    m2ems <- c(emulators[names(emulators) == "mode2"], use.names = FALSE)
+    prop_ems <- c(emulators[names(emulators) == "prop"], use.names = FALSE)
+    return(list(mode1 = collect_emulators(m1ems),
+                mode2 = collect_emulators(m2ems),
+                prop = collect_emulators(prop_ems)))
   }
   if (!is.null(emulators[[1]]$mode1)) {
     m1ems <- purrr::map(emulators, ~.$mode1)
@@ -240,6 +285,12 @@ collect_emulators <- function(emulators) {
     return(list(mode1 = collect_emulators(m1ems),
                 mode2 = collect_emulators(m2ems),
                 prop = collect_emulators(prop_ems)))
+  }
+  if (!is.null(emulators[[1]]$expectation)) {
+    exp_ems <- purrr::map(emulators, ~.$expectation)
+    var_ems <- purrr::map(emulators, ~.$variance)
+    return(list(expectation = collect_emulators(exp_ems),
+                variance = collect_emulators(var_ems)))
   }
   return(collect_emulators(unlist(emulators)))
 }
@@ -263,6 +314,10 @@ getRanges <- function(emulators, minimal = TRUE) {
   if (!is.null(emulators$expectation)) emulators <- emulators$expectation
   if (!is.null(emulators$mode1))
     emulators <- c(emulators$mode1$expectation, emulators$mode2$expectation)
+  range_lengths <- purrr::map_dbl(emulators, ~length(.$ranges))
+  if (length(unique(range_lengths)) != 1) {
+    emulators <- emulators[range_lengths == max(range_lengths)]
+  }
   range_widths <- data.frame(
     do.call(
       'rbind', purrr::map(emulators, ~purrr::map(.$ranges, diff))))
@@ -275,8 +330,8 @@ getRanges <- function(emulators, minimal = TRUE) {
 }
 
 # Pre-submission questions for CRAN submission
-release_questions <- function() {
+release_questions <- function() { # nocov start
   c(
     "Have you recompiled the vignettes using precompile.R?"
     )
-}
+} # nocov end

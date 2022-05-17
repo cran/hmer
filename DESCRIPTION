@@ -1,7 +1,7 @@
 Package: hmer
 Type: Package
 Title: History Matching and Emulation Package
-Version: 1.0.0
+Version: 1.0.1
 Authors@R: c(person("Andrew", "Iskauskas", email = "andrew.iskauskas@durham.ac.uk", comment = c(ORCID = "0000-0003-2825-3651"), role = c('aut', 'cre')))
 Maintainer: Andrew Iskauskas <andrew.iskauskas@durham.ac.uk>
 BugReports: https://github.com/andy-iskauskas/hmer/issues
@@ -12,7 +12,8 @@ Description: A set of objects and functions for Bayes Linear emulation and histo
   For details on the mathematical background, there are many papers available on the topic
   (see references attached to function help files); for details of the functions in this package,
   consult the manual or help files.
-Suggests: spelling, knitr, rmarkdown, deSolve
+Suggests: spelling, knitr, rmarkdown, deSolve, testthat (>= 3.0.0),
+        covr
 VignetteBuilder: knitr
 Depends: R (>= 4.0.0)
 Imports: purrr, stringr, tidyr, ggplot2, lhs, MASS, R6, viridis,
@@ -20,10 +21,11 @@ Imports: purrr, stringr, tidyr, ggplot2, lhs, MASS, R6, viridis,
 License: MIT + file LICENSE
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.1.2
+RoxygenNote: 7.2.0
 Language: en-GB
+Config/testthat/edition: 3
 NeedsCompilation: no
-Packaged: 2022-04-12 10:42:50 UTC; tqxh68
+Packaged: 2022-05-17 14:37:01 UTC; andy
 Author: Andrew Iskauskas [aut, cre] (<https://orcid.org/0000-0003-2825-3651>)
 Repository: CRAN
-Date/Publication: 2022-04-14 09:12:29 UTC
+Date/Publication: 2022-05-17 14:50:02 UTC
