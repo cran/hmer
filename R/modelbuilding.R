@@ -425,7 +425,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
   if(!is.null(targets) &&
      length(intersect(names(targets), output_names) == length(output_names))) {
     do_preflight <- preflight(input_data, targets[output_names],
-                              verbose = verbose)
+                              verbose = verbose, na.rm = na.rm)
     if (do_preflight && verbose) {
       cat("Some outputs may not be adequately emulated,", #nocov start
                 "due to consistent over/underestimation in training data.\n")
@@ -707,6 +707,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
 #' @param ranges A named list of parameter ranges
 #' @param input_names The names of the parameters (if \code{ranges} is not provided).
 #' @param verbose Should status updates be printed to console?
+#' @param na.rm Should NA values be removed before training?
 #' @param ... Optional parameters that can be passed to \code{link{emulator_from_data}}.
 #'
 #' @return A list of lists: one for the variance emulators and one for the function emulators.
@@ -721,7 +722,9 @@ emulator_from_data <- function(input_data, output_names, ranges,
 #' @export
 variance_emulator_from_data <- function(input_data, output_names, ranges,
                                         input_names = names(ranges),
-                                        verbose = interactive(), ...) {
+                                        verbose = interactive(), na.rm = FALSE, ...) {
+  if (na.rm) input_data <- input_data[apply(
+    input_data, 1, function(x) !any(is.na(x))),]
   unique_points <- unique(input_data[, input_names])
   uids <- apply(unique_points, 1, hash)
   data_by_point <- purrr::map(uids, function(x) {
@@ -878,6 +881,7 @@ variance_emulator_from_data <- function(input_data, output_names, ranges,
 #' @param ranges The parameter ranges
 #' @param input_names The names of the parameters (by default inferred from \code{ranges})
 #' @param verbose Should status updates be provided?
+#' @param na.rm Should NA values be removed before training?
 #' @param ... Any other parameters to pass to emulator training
 #'
 #' @return A list \code{(mode1, mode2, prop)} of emulator lists and objects.
@@ -893,7 +897,9 @@ variance_emulator_from_data <- function(input_data, output_names, ranges,
 #'
 bimodal_emulator_from_data <- function(data, output_names, ranges,
                                        input_names = names(ranges),
-                                       verbose = interactive(), ...) {
+                                       verbose = interactive(), na.rm = FALSE, ...) {
+  if (na.rm) input_data <- input_data[apply(
+    input_data, 1, function(x) !any(is.na(x))),]
   unique_points <- unique(data[,input_names])
   uids <- apply(unique_points, 1, hash)
   param_sets <- purrr::map(uids, function(x) {

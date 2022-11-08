@@ -8,9 +8,9 @@ generate_new_runs(
   ems,
   n_points,
   z,
-  method = c("lhs", "line", "importance"),
+  method = "default",
   cutoff = 3,
-  nth = 1,
+  nth = NULL,
   plausible_set,
   verbose = interactive(),
   cluster = FALSE,
@@ -19,6 +19,7 @@ generate_new_runs(
   c_tol = 0.5,
   i_tol = 0.01,
   to_file = NULL,
+  imp_func = function(ems, x, z, ...) nth_implausible(ems, x, z, ...),
   ...
 )
 }
@@ -50,6 +51,8 @@ generate_new_runs(
 \item{i_tol}{The tolerance on final desired implausibility}
 
 \item{to_file}{The filename to write to sequentially during proposal. Default is NULL (no writing)}
+
+\item{imp_func}{The implausibility measure to use to determine point acceptance.}
 
 \item{...}{Any parameters to pass to individual sampling functions, eg \code{distro} for importance sampling.}
 }
@@ -92,12 +95,21 @@ in each parameter direction can be determined. From these derived marginals, poi
 sampled.
 
 For any sampling strategy, the parameters \code{ems} and \code{z} must be provided.
+All of these methods depend on a means of assessing point suitability (henceforth
+referred to as 'implausibility'). By default, this is uses nth-maximum implausibility
+as provided by \code{\link{nth_implausible}}: a user-defined method can be substituted
+for this by supplying the function call to \code{imp_func}. As a minimum, the function
+should take four arguments: the emulators, the points, and the targets, and a \code{...}
+argument to allow compatibility with the standard behaviour.
 
 The option \code{seek} determines how many points should be chosen that have a higher
 probability of matching targets, as opposed to not missing targets. Due to the danger of
 such an approach in terms of obtaining a representative space-filling design over the
 space, this value should not be too high: a rough guide is that it should be no larger
-than 10\% of the desired number of points. The default is \code{seek = 0}.
+than 10\% of the desired number of points. The default is \code{seek = 0}. If \code{seek}
+is in the range [0, 1], it is assumed to represent a proportion of the total number of
+points that should be sought using this method; otherwise, it is assumed to be the number
+of points that are desired.
 
 The default behaviour is as follows. A set of initial points are generated from an LHD;
 line sampling is performed to find the boundaries; and finally this collection of points

@@ -57,6 +57,7 @@ sequential_imp <- function(ems, x, z, n = 1, cutoff = 3) {
 #' @param cutoff A numeric value, or vector of such, representing allowed implausibility
 #' @param sequential Should the emulators be evaluated sequentially?
 #' @param get_raw Boolean - determines whether nth-implausibility should be applied.
+#' @param ordered If FALSE, emulators are ordered according to restrictiveness.
 #'
 #' @return Either the nth maximum implausibilities, or booleans (if cutoff is given).
 #' @export
@@ -90,13 +91,19 @@ sequential_imp <- function(ems, x, z, n = 1, cutoff = 3) {
 #' nth_implausible(v_ems$expectation, unique(BirthDeath$validation[,1:2]), v_targs)
 #' nth_implausible(v_ems, unique(BirthDeath$validation[,1:2]), v_targs$expectation)
 #'
-nth_implausible <- function(ems, x, z, n = 1,
+nth_implausible <- function(ems, x, z, n = NULL,
                             max_imp = Inf, cutoff = NULL,
-                            sequential = FALSE, get_raw = FALSE) {
-  ems <- collect_emulators(ems)
+                            sequential = FALSE, get_raw = FALSE,
+                            ordered = FALSE) {
+  if (!"data.frame" %in% class(x))  {
+    if (!is.null(dim(x)) && !is.null(colnames(x)))
+      x <- data.frame(x)
+    else stop("Named array or data.frame of points required.")
+  }
+  if (!ordered) ems <- collect_emulators(ems, z)
   ## Preprocessing for variance emulation
   if (!is.null(ems$expectation) && !is.null(ems$variance)) {
-    if (n == 1)
+    if (is.null(n))
       n <- ifelse(length(unique(purrr::map_chr(
         ems$expectation, ~.$output_name))) > 10, 2, 1)
     if (!is.null(z$expectation) && !is.null(z$variance)) {
@@ -130,8 +137,12 @@ nth_implausible <- function(ems, x, z, n = 1,
                            max_imp, cutoff, sequential, get_raw))
   }
   else if (!is.null(ems$mode1) && !is.null(ems$mode2)) {
+    if (is.null(n))
+      n <- ifelse(length(unique(purrr::map_chr(
+        ems$mode1$expectation, ~.$output_name))) > 10, 2, 1)
     imps1 <- nth_implausible(ems$mode1, x, z, n, max_imp, cutoff, FALSE, TRUE)
     imps2 <- nth_implausible(ems$mode2, x, z, n, max_imp, cutoff, FALSE, TRUE)
+    imps2 <- imps2[,names(imps1)]
     get_min_concrete <- function(v1, v2) {
       if (all(is.numeric(v1))) {
         output <- purrr::map_dbl(seq_along(v1), function(i) {
@@ -150,7 +161,7 @@ nth_implausible <- function(ems, x, z, n = 1,
     if (get_raw) return(imp_mat)
   }
   else {
-    if (n == 1)
+    if (is.null(n))
       n <- ifelse(length(unique(purrr::map_chr(ems, ~.$output_name))) > 10, 2, 1)
     for (i in seq_along(z)) {
       if (length(z[[i]]) == 1) {

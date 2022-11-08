@@ -71,7 +71,7 @@ k_fold_measure <- function(em, target = NULL, k = 1, ...) {
           outp <- cbind(
             outp, adj_em$implausibility(train_data[relev_pts, names(em$ranges)],
                                         target))
-        return(outp)
+        return(c(outp, use.names = FALSE))
       })
     }
   }
@@ -87,7 +87,7 @@ k_fold_measure <- function(em, target = NULL, k = 1, ...) {
       if (!is.null(target))
         outp <- c(outp, adj_em$implausibility(train_data[x, names(em$ranges)],
                                               target))
-      return(outp)
+      return(c(outp, use.names = FALSE))
     })
   }
   res_names <- c(names(em$ranges), em$output_name, "E", "V")
@@ -342,7 +342,7 @@ get_diagnostic <- function(emulator, targets = NULL, validation = NULL,
       else {
         em_exps <- emulator$get_exp(input_points)
         em_vars <- emulator$get_cov(input_points)
-        point_vars <- cleaned_data$var
+        point_vars <- cleaned_data$var/(cleaned_data$n-1)
       }
     }
     else {
@@ -434,13 +434,23 @@ get_diagnostic <- function(emulator, targets = NULL, validation = NULL,
 #' on the diagnostic, a set of summary measures. It returns a data.frame of any points that failed
 #' the diagnostic.
 #'
-#' @importFrom graphics abline arrows hist
+#' We may also superimpose the target bounds on the comparison diagnostics, to get a sense of
+#' where it is most important that the emulator and simulator agree. The \code{target_viz}
+#' argument controls this, and has three options: 'interval' (a horizontal interval); 'solid'
+#' (a solid grey box whose dimensions match the target region in both vertical and horizontal
+#' extent); and 'hatched' (similar to solid, but a semi-transparent box with hatching inside).
+#' Any such vizualisation has extent equal to the target plus/mius 4.5 times the target
+#' uncertainty. By default, \code{target_viz = NULL}, indicating that no superposition is shown.
+#'
+#' @importFrom graphics abline arrows hist rect
+#' @importFrom grDevices rgb
 #'
 #' @param in_data The data to perform the analysis on
 #' @param output_name The name of the output emulated
 #' @param targets If required or desired, the targets for the system outputs
 #' @param plt Whether or not to plot the analysis
 #' @param cutoff The implausibility cutoff for diagnostic `ce'
+#' @param target_viz How to show the targets on the diagnostic plots
 #' @param ... Any other parameters to pass to subfunctions
 #'
 #' @return A data.frame of failed points
@@ -452,14 +462,18 @@ get_diagnostic <- function(emulator, targets = NULL, validation = NULL,
 #'
 #' @seealso \code{\link{get_diagnostic}}
 analyze_diagnostic <- function(in_data, output_name, targets = NULL,
-                               plt = interactive(), cutoff = 3, ...) {
+                               plt = interactive(), cutoff = 3, target_viz = NULL, ...) {
+  if (!is.null(target_viz))
+    if (!target_viz %in% c("interval", "solid", "hatched")) target_viz <- NULL
   output_points <- in_data[,output_name]
   input_points <- in_data[, !names(in_data) %in% c(output_name,
                                                    'error', 'em',
                                                    'sim', 'exp', 'unc')]
   if (!is.null(in_data$error)) {
-    if (plt) hist(in_data$error, xlab = "Standardised Error",
-                  main = output_name)
+    if (plt) {
+      h1 <- hist(in_data$error, plot = FALSE)
+      plot(h1, xlab = "Standardised Error", main = output_name)
+    }
     emulator_invalid <- abs(in_data$error) > 3
     if (!is.null(targets)) {
       this_target <- targets[[output_name]]
@@ -469,6 +483,11 @@ analyze_diagnostic <- function(in_data, output_name, targets = NULL,
       else
         point_invalid <- ((output_points < this_target$val - 6*this_target$sigma) |
                             (output_points > this_target$val + 6*this_target$sigma))
+      if (plt) {
+        errors_restricted <- in_data[!point_invalid, 'error']
+        h2 <- hist(errors_restricted, breaks = h1$breaks, plot = FALSE)
+        plot(h2, add = TRUE, col = 'blue')
+      }
       emulator_invalid <- (!point_invalid & emulator_invalid)
     }
   }
@@ -478,29 +497,54 @@ analyze_diagnostic <- function(in_data, output_name, targets = NULL,
       (output_points < in_data$exp - in_data$unc)
     if (!is.null(targets)) {
       this_target <- targets[[output_name]]
-      if (is.atomic(this_target))
+      if (is.atomic(this_target)) {
         point_invalid <- ((output_points < this_target[1]-diff(this_target)/2) |
                             (output_points > this_target[2]+diff(this_target)/2))
-      else
+        panlims <- c(this_target[1]-diff(this_target)/4,
+                   this_target[2]+diff(this_target)/4)
+      }
+      else {
         point_invalid <- ((output_points < this_target$val - 6*this_target$sigma) |
                             (output_points > this_target$val + 6*this_target$sigma))
+        panlims <- c(this_target$val - 4.5*this_target$sigma,
+                     this_target$val + 4.5*this_target$sigma)
+      }
       emulator_invalid <- (!point_invalid & emulator_invalid)
     }
+    else panlims <- NULL
     if (plt) {
       plot(output_points, in_data$exp, pch = 16,
            col = ifelse(emulator_invalid, 'red', 'black'),
            xlim = range(output_points), ylim = range(em_ranges),
            xlab = 'f(x)', ylab = 'E[f(x)]',
-           panel.first = c(abline(a = 0, b = 1, col = 'green')),
+           panel.first = c(
+             if (!is.null(target_viz)) {
+               if (target_viz == "interval")
+                 arrows(x0 = panlims[1], x1 = panlims[2],
+                        y0 = min(in_data$exp)+0.05*diff(range(in_data$exp)),
+                        y1 = min(in_data$exp)+0.05*diff(range(in_data$exp)),
+                        length = 0.05, code = 3, angle = 90)
+               else if (target_viz == "solid")
+                 rect(xleft = panlims[1], xright = panlims[2],
+                      ybottom = panlims[1], ytop = panlims[2],
+                      col = rgb(40, 40, 40, 51, maxColorValue = 255))
+               else
+                 rect(xleft = panlims[1], xright = panlims[2],
+                      ybottom = panlims[1], ytop = panlims[2],
+                      col = rgb(40, 40, 40, 102, maxColorValue = 255),
+                      density = 15, angle = 135)
+             }
+             else NULL,
+               abline(a = 0, b = 1, col = 'green')),
            main = output_name)
       for (i in seq_along(input_points[,1])) {
-        if (in_data$unc[[i]] < 1e-8) next
-        arrows(x0 = output_points[[i]],
+        if (in_data$unc[[i]] < 1e-6) next
+        suppressWarnings(arrows(x0 = output_points[[i]],
                y0 = in_data$exp[[i]] - in_data$unc[[i]],
                x1 = output_points[[i]],
                y1 = in_data$exp[[i]] + in_data$unc[[i]],
                col = ifelse(emulator_invalid[[i]], 'red', 'blue'),
-               code = 3, angle = 90, length = 0.05)
+               code = 3, angle = 90, length = 0.05))
       }
     }
   }
@@ -574,7 +618,7 @@ validation_diagnostics <- function(emulators, targets = NULL,
                                    analyze = TRUE,
                                    diagnose = "expectation", ...) {
   oldpar <- par(no.readonly = TRUE)
-  on.exit(par(oldpar))
+  on.exit(par(oldpar), add = TRUE)
   if ("Emulator" %in% class(emulators))
     emulators <- setNames(list(emulators), emulators$output_name)
   if (length(which_diag) == 1 && which_diag == 'all') actual_diag <- c('cd', 'ce', 'se')
