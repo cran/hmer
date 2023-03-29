@@ -181,8 +181,9 @@ var_plot <- function(em, plotgrid = NULL, ppd = 30, sd = FALSE) {
   return(g)
 }
 
-# Plotting emulator variance
-imp_plot <- function(em, z, plotgrid = NULL, ppd = 30, cb = FALSE, nth = NULL) {
+# Plotting emulator implausibility
+imp_plot <- function(em, z, plotgrid = NULL, ppd = 30, cb = FALSE, nth = NULL,
+                     imp_breaks = NULL) {
   if (!is.null(nth)) {
     if (nth == 1) ns <- ""
     else if (nth == 2) ns <- "Second"
@@ -208,10 +209,18 @@ imp_plot <- function(em, z, plotgrid = NULL, ppd = 30, cb = FALSE, nth = NULL) {
       plotgrid[[names(ranges)[i]]] <- sum(ranges[[i]])/2
     }
   }
-  imp_breaks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7,
-                  3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15, Inf)
-  imp_names <- c(0, '', '', 1, '', '', 2, '', '', 3, '',
-                 '', '', 5, '', '', '', 10, 15, '')
+  if (is.null(imp_breaks)) {
+    imp_breaks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7,
+                    3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15, Inf)
+    imp_names <- c(0, '', '', 1, '', '', 2, '', '', 3, '',
+                  '', '', 5, '', '', '', 10, 15, '')
+  } else {
+    if (!is.numeric(imp_breaks)) stop("imp_breaks not a numeric vector.")
+    if (any(is.na(imp_breaks))) stop("imp_breaks cannot contain missing values.")
+    if (any(diff(imp_breaks) <= 0)) stop("imp_breaks must be in ascending order.")
+    if (length(imp_breaks) != 20) stop("imp_breaks must be of length 20.")
+    imp_names <- as.character(imp_breaks)
+  }
   if (!is.null(nth)) {
     if (!"Emulator" %in% class(em)) {
       em_imp <- nth_implausible(em, plotgrid[names(ranges)],
@@ -297,6 +306,8 @@ imp_plot <- function(em, z, plotgrid = NULL, ppd = 30, cb = FALSE, nth = NULL) {
 #' @param params Which two input parameters should be plotted?
 #' @param fixed_vals For fixed input parameters, the values they are held at.
 #' @param nth If plotting nth maximum implausibility, which level maximum to plot.
+#' @param imp_breaks If plotting nth maximum implausibility, defines the levels at
+#'                   which to draw contours.
 #'
 #' @return A ggplot object, or collection thereof.
 #'
@@ -318,7 +329,7 @@ imp_plot <- function(em, z, plotgrid = NULL, ppd = 30, cb = FALSE, nth = NULL) {
 #'
 emulator_plot <- function(ems, plot_type = 'exp', ppd = 30, targets = NULL,
                           cb = FALSE, params = NULL, fixed_vals = NULL,
-                          nth = 1) {
+                          nth = 1, imp_breaks = NULL) {
   if ("Emulator" %in% class(ems)){
     ranges <- ems$ranges
     single_em <- TRUE
@@ -365,11 +376,11 @@ emulator_plot <- function(ems, plot_type = 'exp', ppd = 30, targets = NULL,
       if (is.null(targets))
         stop("Cannot plot implausibility without target value.")
     }
-    if (!is.null(targets$val)) return(imp_plot(em, targets, plotgrid, ppd, cb))
-    else return(imp_plot(em, targets[[em$output_name]], plotgrid, ppd, cb))
+    if (!is.null(targets$val)) return(imp_plot(em, targets, plotgrid, ppd, cb, NULL, imp_breaks))
+    else return(imp_plot(em, targets[[em$output_name]], plotgrid, ppd, cb, NULL, imp_breaks))
   }
   if (single_em) return(get_plot(ems))
-  if (plot_type == 'nimp') return(imp_plot(ems, targets, plotgrid, ppd, cb, nth))
+  if (plot_type == 'nimp') return(imp_plot(ems, targets, plotgrid, ppd, cb, nth, imp_breaks))
   else {
     plotlist <- purrr::map(ems, get_plot)
     replacement_function <- function(plots, title = NULL) {
@@ -502,6 +513,9 @@ output_plot <- function(ems, targets, points = NULL, npoints = 1000) {
 #' @param cb Whether or not a colourblind-friendly plot should be produced.
 #' @param cutoff The cutoff value for non-implausible points.
 #' @param maxpoints The limit on the number of points to be evaluated.
+#' @param imp_breaks If plotting nth maximum implausibility, defines the levels at
+#'                   which to draw contours.
+#' @param contour Logical determining whether to plot implausibility contours or not.
 #'
 #' @return A ggplot object
 #'
@@ -516,7 +530,8 @@ output_plot <- function(ems, targets, points = NULL, npoints = 1000) {
 #'  plot_lattice(SIREmulators$ems$nS, SIREmulators$targets)
 #' }
 plot_lattice <- function(ems, targets, ppd = 20, cb = FALSE,
-                         cutoff = 3, maxpoints = 5e4) {
+                         cutoff = 3, maxpoints = 5e4, imp_breaks = NULL, 
+                         contour = TRUE) {
   ems <- collect_emulators(ems)
   ranges <- if ("Emulator" %in% class(ems)) ems$ranges else ems[[1]]$ranges
   if (ppd^length(ranges) > maxpoints) {
@@ -577,10 +592,18 @@ plot_lattice <- function(ems, targets, ppd = 20, cb = FALSE,
                     c(parameters, if(op) "op" else "imp")))
   }
   cols <- if(cb) colourblind else redgreen
-  imp_breaks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7,
-                  3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15, 100)
-  imp_names <- c(0, '', '', 1, '', '', 2, '', '', 3, '',
-                 '', '', 5, '', '', '', 10, 15, '')
+  if (is.null(imp_breaks)) {
+    imp_breaks <- c(0, 0.3, 0.7, 1, 1.3, 1.7, 2, 2.3, 2.7,
+                    3, 3.5, 4, 4.5, 5, 6, 7, 8, 10, 15, Inf)
+    imp_names <- c(0, '', '', 1, '', '', 2, '', '', 3, '',
+                   '', '', 5, '', '', '', 10, 15, '')
+  } else {
+    if (!is.numeric(imp_breaks)) stop("imp_breaks not a numeric vector.")
+    if (any(is.na(imp_breaks))) stop("imp_breaks cannot contain missing values.")
+    if (any(diff(imp_breaks) <= 0)) stop("imp_breaks must be in ascending order.")
+    if (length(imp_breaks) != 20) stop("imp_breaks must be of length 20.")
+    imp_names <- as.character(imp_breaks)
+  }
   parameter_combinations <- expand.grid(
     names(ranges),
     names(ranges),
@@ -598,7 +621,7 @@ plot_lattice <- function(ems, targets, ppd = 20, cb = FALSE,
       which(names(ranges) == parameters[2])) {
       pt <- two_dim(point_grid, parameters)
       g <- ggplot(mapping = aes(x = pt[,1], y = pt[,2], z = pt[,3])) +
-        geom_contour_filled(breaks = imp_breaks, colour = 'black') +
+        geom_contour_filled(breaks = imp_breaks, colour = ifelse(contour, "black", NA)) +
         scale_fill_manual(values = cols, labels = imp_names,
                           name = "Min. I",
                           guide = guide_legend(reverse = TRUE), drop = FALSE) +

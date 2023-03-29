@@ -58,6 +58,8 @@ sequential_imp <- function(ems, x, z, n = 1, cutoff = 3) {
 #' @param sequential Should the emulators be evaluated sequentially?
 #' @param get_raw Boolean - determines whether nth-implausibility should be applied.
 #' @param ordered If FALSE, emulators are ordered according to restrictiveness.
+#' @param ... Any additional arguments to pass to chained functions (e.g. \code{ordering}
+#' to pass to \code{collect_emulators})
 #'
 #' @return Either the nth maximum implausibilities, or booleans (if cutoff is given).
 #' @export
@@ -94,13 +96,13 @@ sequential_imp <- function(ems, x, z, n = 1, cutoff = 3) {
 nth_implausible <- function(ems, x, z, n = NULL,
                             max_imp = Inf, cutoff = NULL,
                             sequential = FALSE, get_raw = FALSE,
-                            ordered = FALSE) {
+                            ordered = FALSE, ...) {
   if (!"data.frame" %in% class(x))  {
     if (!is.null(dim(x)) && !is.null(colnames(x)))
       x <- data.frame(x)
     else stop("Named array or data.frame of points required.")
   }
-  if (!ordered) ems <- collect_emulators(ems, z)
+  if (!ordered) ems <- collect_emulators(ems, z, cutoff, ...)
   ## Preprocessing for variance emulation
   if (!is.null(ems$expectation) && !is.null(ems$variance)) {
     if (is.null(n))
@@ -142,7 +144,7 @@ nth_implausible <- function(ems, x, z, n = NULL,
         ems$mode1$expectation, ~.$output_name))) > 10, 2, 1)
     imps1 <- nth_implausible(ems$mode1, x, z, n, max_imp, cutoff, FALSE, TRUE)
     imps2 <- nth_implausible(ems$mode2, x, z, n, max_imp, cutoff, FALSE, TRUE)
-    imps2 <- imps2[,names(imps1)]
+    imps2 <- imps2[,names(imps1),drop = FALSE]
     get_min_concrete <- function(v1, v2) {
       if (all(is.numeric(v1))) {
         output <- purrr::map_dbl(seq_along(v1), function(i) {
@@ -204,7 +206,7 @@ nth_implausible <- function(ems, x, z, n = NULL,
   }
   if (length(ems) == 1 ||
       (!is.null(ems$expectation) &&
-       length(ems$expectation) == 1)) return(t(imp_mat))
+       length(ems$expectation) == 1)) imp_mat <- t(imp_mat)
   if (nrow(imp_mat) == 1 && nrow(x) != 1) imp_mat <- t(imp_mat)
   if (get_raw)
     return(setNames(data.frame(imp_mat),

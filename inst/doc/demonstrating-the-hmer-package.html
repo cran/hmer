@@ -12,7 +12,7 @@
 
 <meta name="author" content="Andrew Iskauskas" />
 
-<meta name="date" content="2022-11-08" />
+<meta name="date" content="2023-03-29" />
 
 <title>Demonstrating the hmer Package</title>
 
@@ -341,7 +341,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Demonstrating the hmer Package</h1>
 <h4 class="author">Andrew Iskauskas</h4>
-<h4 class="date">2022-11-08</h4>
+<h4 class="date">2023-03-29</h4>
 
 
 
@@ -551,7 +551,7 @@ will be <code>TRUE</code> if we are stepping through this by hand, but
 not if we run this at arm’s length (for example on a cluster).</p>
 <div class="sourceCode" id="cb17"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>new_points <span class="ot">&lt;-</span> <span class="fu">generate_new_runs</span>(wave1_emulators, <span class="dv">90</span>, targets)</span>
 <span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Proposing from LHS...</span></span>
-<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; LHS has high yield - no other methods required.</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; LHS has high yield; no other methods required.</span></span>
 <span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Proposing from LHS...</span></span>
 <span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Selecting final points using maximin criterion...</span></span>
 <span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(<span class="fu">rbind</span>(<span class="fu">rbind</span>(SIRSample<span class="sc">$</span>training, SIRSample<span class="sc">$</span>validation)[,<span class="fu">names</span>(input_ranges)], new_points), <span class="at">pch =</span> <span class="dv">16</span>, <span class="at">cex =</span> <span class="fl">0.8</span>, <span class="at">col =</span> <span class="fu">rep</span>(<span class="fu">c</span>(<span class="st">&#39;black&#39;</span>, <span class="st">&#39;blue&#39;</span>), <span class="at">each =</span> <span class="dv">90</span>))</span></code></pre></div>

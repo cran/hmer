@@ -128,6 +128,8 @@ k_fold_measure <- function(em, target = NULL, k = 1, ...) {
 #' @examples
 #'  summary_diag(SIREmulators$ems$nR, SIRSample$validation)
 summary_diag <- function(emulator, validation, verbose = interactive()) {
+  if ("EmProto" %in% class(emulator))
+    stop("summary_diag not applicable for Proto_emulator objects.")
   points <- validation[,names(emulator$ranges)]
   outputs <- validation[,emulator$output_name]
   m <- nrow(validation)
@@ -175,6 +177,8 @@ summary_diag <- function(emulator, validation, verbose = interactive()) {
 #' residual_diag(SIREmulators$ems$nI, TRUE)
 #'
 residual_diag <- function(emulator, histogram = FALSE, ...) {
+  if ("EmProto" %in% class(emulator))
+    stop("residual_diag not applicable for Proto_emulator objects.")
   in_points <- eval_funcs(scale_input, data.frame(emulator$in_data),
                           emulator$ranges, FALSE)
   if (is.numeric(emulator$u_sigma))
@@ -212,10 +216,12 @@ residual_diag <- function(emulator, histogram = FALSE, ...) {
 #' @param ems The emulators to compute over, as a list
 #' @param targets The output target values
 #' @param points The points to test against
+#' @param ppd If no points are provided and uniform grid is wanted, the number of
+#'            points per parameter dimension.
 #' @param cutoff The cutoff value for implausibility
 #' @param individual If true, gives emulator-by-emulator results; otherwise works with maximum implausibility
 #'
-#' @return A numeric corresponding to the proportions of points accepted.
+#' @return A numeric corresponding to the proportions of points removed.
 #'
 #' @seealso \code{\link{space_removed}} for a visualisation of the space removal.
 #' @export
@@ -225,15 +231,33 @@ residual_diag <- function(emulator, histogram = FALSE, ...) {
 #'   rbind(SIRSample$training, SIRSample$validation))
 #'  space_removal(SIREmulators$ems, SIREmulators$targets,
 #'   rbind(SIRSample$training, SIRSample$validation), individual = FALSE)
-space_removal <- function(ems, targets, points = NULL,
+space_removal <- function(ems, targets, points = NULL, ppd = NULL,
                           cutoff = 3, individual = TRUE) {
   if (is.null(points)) {
-    input_points <- eval_funcs(scale_input, data.frame(ems[[1]]$in_data),
-                               ems[[1]]$ranges, FALSE)
-    output_points <- setNames(do.call('cbind.data.frame',
-                                      purrr::map(ems, ~.$out_data)),
-                              purrr::map_chr(ems, ~.$output_name))
-    points <- data.frame(cbind(input_points, output_points))
+    if (is.null(ppd)) {
+      if ("EmProto" %in% class(ems[[1]]))
+        stop("Cannot access emulator training points as basis for space removal calculation for proto_ems.")
+      input_points <- eval_funcs(scale_input, data.frame(ems[[1]]$in_data),
+                                 ems[[1]]$ranges, FALSE)
+      output_points <- setNames(do.call('cbind.data.frame',
+                                        purrr::map(ems, ~.$out_data)),
+                                purrr::map_chr(ems, ~.$output_name))
+      points <- data.frame(cbind(input_points, output_points))
+    }
+    else {
+      maxpoints <- 50000
+      ranges <- ems[[1]]$ranges
+      if (ppd^length(ranges) > maxpoints) {
+        points <- setNames(do.call('cbind.data.frame',
+                                   purrr::map(ranges, ~runif(maxpoints, .[[1]], .[[2]]))),
+                           names(ranges))
+      }
+      else {
+        points <- setNames(
+          expand.grid(purrr::map(ranges, ~seq(.[[1]], .[[2]], length.out = ppd))),
+          names(ranges))
+      }
+    }
   }
   if (individual) {
     imps <- setNames(
@@ -242,10 +266,10 @@ space_removal <- function(ems, targets, points = NULL,
         purrr::map(ems, ~.$implausibility(points, targets[[.$output_name]],
                                           cutoff = cutoff))),
       purrr::map_chr(ems, ~.$output_name))
-    return(apply(imps, 2, sum)/nrow(points))
+    return(1-apply(imps, 2, sum)/nrow(points))
   }
   nth_imps <- nth_implausible(ems, points, targets, cutoff = cutoff)
-  return(sum(nth_imps)/nrow(points))
+  return(1-sum(nth_imps)/nrow(points))
 }
 
 #' Diagnostic Tests for Emulators
@@ -307,6 +331,8 @@ space_removal <- function(ems, targets, points = NULL,
 get_diagnostic <- function(emulator, targets = NULL, validation = NULL,
                            which_diag = 'cd', stdev = 3, cleaned = NULL,
                            warn = TRUE, kfold = NULL, ...) {
+  if (is.null(validation) && "EmProto" %in% class(emulator))
+    stop("Proto_emulator object requires validation set.")
   if (is.null(targets) && which_diag == 'ce')
     stop("Targets must be provided for classification error diagnostics.")
   if (is.null(validation)) {
@@ -621,6 +647,8 @@ validation_diagnostics <- function(emulators, targets = NULL,
   on.exit(par(oldpar), add = TRUE)
   if ("Emulator" %in% class(emulators))
     emulators <- setNames(list(emulators), emulators$output_name)
+  if ("EmProto" %in% unlist(purrr::map(emulators, class), use.names = FALSE) && is.null(validation))
+    stop("Proto_emulator objects require a validation set.")
   if (length(which_diag) == 1 && which_diag == 'all') actual_diag <- c('cd', 'ce', 'se')
   else {
     actual_diag <- which_diag[which_diag %in% c('cd', 'ce', 'se')]
@@ -649,8 +677,9 @@ validation_diagnostics <- function(emulators, targets = NULL,
     if (!is.null(validation)) {
       v_outputs <- validation[,
                               unique(c(purrr::map_chr(m1_ems, ~.$output_name),
-                                       purrr::map_chr(m2_ems, ~.$output_name)))]
-      v_class <- Mclust(v_outputs, G = 1:2, verbose = FALSE)$classification
+                                       purrr::map_chr(m2_ems, ~.$output_name))), drop = FALSE]
+      v_class <- fanny(suppressWarnings(daisy(v_outputs)), k = 2)$clustering
+      #v_class <- Mclust(v_outputs, G = 1:2, verbose = FALSE)$classification
       valid_one <- validation[v_class == 1,]
       valid_two <- validation[v_class == 2,]
       cleaning_dat1 <- purrr::map(m1_ems, function(x) {
@@ -762,7 +791,6 @@ validation_diagnostics <- function(emulators, targets = NULL,
         diag_results[[i]][[j]], names(diag_results)[[i]], targets, ...)
     }
   }
-  par(op)
   failed_points <- unique(do.call('rbind', fail_point_list))
   return(failed_points)
 }
@@ -819,6 +847,8 @@ validation_diagnostics <- function(emulators, targets = NULL,
 #'
 individual_errors <- function(em, validation, errtype = "normal",
                               xtype = "index", plottype = "normal") {
+  if ("EmProto" %in% class(em))
+    stop("individual_errors not applicable for Proto_emulator objects.")
   if (!errtype %in% c("normal", "eigen", "chol", "cholpivot"))
     stop(paste("Error type not recognised",
     "(options are normal, eigen, chol, or cholpivot)."))

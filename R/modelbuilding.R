@@ -178,6 +178,7 @@ likelihood_estimate <- function(inputs, outputs, h, corr_name = 'exp_sq',
                                       ~hp_range[[.]][[1]]), names(hp_range)))
   if (!"data.frame" %in% class(inputs)) inputs <- data.frame(inputs)
   H <- t(eval_funcs(h, inputs))
+  if (dim(H)[1] == 1) H <- t(H)
   if (!is.null(beta) && length(beta) != length(h))
     stop("Number of coefficients does not match number of regression functions.")
   av <- purrr::map_lgl(seq_along(names(inputs)), function(x) {
@@ -473,6 +474,24 @@ emulator_from_data <- function(input_data, output_names, ranges,
         input_data[,names(ranges)],
         ranges), input_data[,output_names]),
     c(names(ranges), output_names))
+  if (length(ranges) != length(input_names)) {
+    red_act <- list(...)[["reduce_actives"]]
+    if (is.null(red_act) || !red_act) {
+      in_both <- intersect(names(ranges), input_names)
+      ranges <- ranges[in_both]
+      input_names <- in_both
+      ranges_fit <- ranges
+      inputs_fit <- input_names
+    }
+    else {
+      inputs_fit <- intersect(names(ranges), input_names)
+      ranges_fit <- ranges[inputs_fit]
+    }
+  }
+  else {
+    inputs_fit <- input_names
+    ranges_fit <- ranges
+  }
   if (!"data.frame" %in% class(data))
     data <- setNames(data.frame(data), c(names(ranges), output_names))
   if (is.null(list(...)[['more_verbose']]))
@@ -481,35 +500,35 @@ emulator_from_data <- function(input_data, output_names, ranges,
   if (missing(funcs)) {
     if (verbose) cat("Fitting regression surfaces...\n") #nocov
     if (quadratic) {
-      does_add <- (choose(length(input_names)+2,
-                          length(input_names)) > nrow(data))
+      does_add <- (choose(length(inputs_fit)+2,
+                          length(inputs_fit)) > nrow(data))
       models <- purrr::map(
         output_names,
-        ~get_coefficient_model(data, ranges, ., add = does_add,
+        ~get_coefficient_model(data, ranges_fit, ., add = does_add,
                                printing = (if(more_verbose) . else NULL)))
     }
     else {
-      does_add <- (length(input_names)+1 > nrow(data))
+      does_add <- (length(inputs_fit)+1 > nrow(data))
       models <- purrr::map(
         output_names,
-        ~get_coefficient_model(data, ranges, ., add = does_add, order = 1,
+        ~get_coefficient_model(data, ranges_fit, ., add = does_add, order = 1,
                                printing = (if(more_verbose) . else NULL)))
     }
     all_funcs <- c(function(x) 1,
-                   purrr::map(seq_along(input_names), ~function(x) x[[.]]))
-    all_coeffs <- c("(Intercept)", input_names)
+                   purrr::map(seq_along(inputs_fit), ~function(x) x[[.]]))
+    all_coeffs <- c("(Intercept)", inputs_fit)
     if (quadratic) {
       all_funcs <- c(all_funcs,
                      apply(
                        expand.grid(
-                         seq_along(input_names),
-                         seq_along(input_names)), 1,
+                         seq_along(inputs_fit),
+                         seq_along(inputs_fit)), 1,
                        function(y) function(x) x[[y[[1]]]] * x[[y[[2]]]]))
       all_coeffs <- c(all_coeffs,
                       apply(
                         expand.grid(
-                          input_names,
-                          input_names), 1, paste, collapse = ":"))
+                          inputs_fit,
+                          inputs_fit), 1, paste, collapse = ":"))
       all_coeffs <- sub("(.*):(\\1)$", "I(\\1^2)", all_coeffs)
     }
     model_basis_funcs <- purrr::map(
@@ -764,8 +783,7 @@ variance_emulator_from_data <- function(input_data, output_names, ranges,
       apply(collected_df[,paste0(output_names, "var")], 1,
             function(a) !any(is.na(a))),]
   if (verbose) cat("Computed summary statistics...\n") #nocov
-  variance_emulators <- list()
-  for (i in output_names) {
+  variance_emulators <- purrr::map(output_names, function(i) {
     is_high_rep <- !is.na(collected_df_var[,paste0(i,"kurt")])
     all_var <- setNames(
       collected_df_var[,c(input_names, paste0(i, 'var'))], c(input_names, i))
@@ -773,6 +791,7 @@ variance_emulator_from_data <- function(input_data, output_names, ranges,
     if (all(is_high_rep)) kurt_ave <- mean(collected_df_var[,paste0(i,'kurt')])
     else if (!any(is_high_rep)) kurt_ave <- 3
     else kurt_ave <- mean(collected_df_var[is_high_rep, paste0(i, 'kurt')])
+    # if (verbose) print(paste0(i, " kurtosis:", kurt_ave))
     if (all(is_high_rep) || any(is_high_rep)) {
       var_df <- setNames(
         collected_df_var[is_high_rep, c(input_names, paste0(i, "var"))],
@@ -789,13 +808,13 @@ variance_emulator_from_data <- function(input_data, output_names, ranges,
       }
       else {
         variance_em <- emulator_from_data(
-          var_df, i, ranges, quadratic = FALSE,
+          var_df, i, ranges,
           adjusted = FALSE, has.hierarchy = TRUE, verbose = FALSE, ...)[[1]]
       }
     }
     else {
       variance_em <- emulator_from_data(
-        all_var, i, ranges, quadratic = FALSE,
+        all_var, i, ranges,
         adjusted = FALSE, has.hierarchy = TRUE, verbose = FALSE, ...)[[1]]
     }
     if (round(variance_em$u_sigma, 10) <= 0) {
@@ -806,8 +825,8 @@ variance_emulator_from_data <- function(input_data, output_names, ranges,
     }
     var_mod <- function(x, n) {
       if (n > 1)
-        return(variance_em$get_exp(x)^2 +
-                 variance_em$get_cov(x))/n * (kurt_ave - 1 + 2/(n-1))
+        return((variance_em$get_exp(x)^2 +
+                 variance_em$get_cov(x))/n * (kurt_ave - 1 + 2/(n-1)))
       return(0)
     }
     variance_em$s_diag <- var_mod
@@ -823,8 +842,8 @@ variance_emulator_from_data <- function(input_data, output_names, ranges,
           collected_df[!is_high_rep, c(input_names, paste0(i, 'var'))],
           c(input_names, i)), i)
     }
-    variance_emulators <- c(variance_emulators, v_em)
-  }
+    return(v_em)
+  })
   variance_emulators <- setNames(variance_emulators, output_names)
   if (verbose) cat("Completed variance emulators. Training mean emulators...\n") #nocov
   exp_mods <- purrr::map(variance_emulators, ~function(x, n) .$get_exp(x)/n)
@@ -874,7 +893,7 @@ variance_emulator_from_data <- function(input_data, output_names, ranges,
 #' while \code{prop} has the form of an \code{emulator_from_data} output.
 #'
 #' @importFrom rlang hash
-#' @importFrom mclust Mclust mclustBIC emControl mclust.options
+#' @importFrom cluster daisy fanny
 #'
 #' @param data The data to train emulators on (as in variance_emulator_from_data)
 #' @param output_names The names of the outputs to emulate
@@ -906,13 +925,9 @@ bimodal_emulator_from_data <- function(data, output_names, ranges,
     data[apply(data[,input_names], 1, hash) == x,]
   })
   if(verbose) cat("Separated dataset by unique points.\n") #nocov
-  modNames <- mclust.options("emModelNames")[
-    !mclust.options("emModelNames") == "EEE"]
   proportion <- purrr::map_dbl(param_sets, function(x) {
-    prop_clust <- Mclust(x[, output_names], G = 1:2, verbose = FALSE,
-                         modelNames = modNames,
-                         control = emControl(tol = 1e-3))$classification
-    return(sum(prop_clust ==1)/length(prop_clust))
+    p_clust <- fanny(suppressWarnings(daisy(x[, output_names, drop = FALSE])), k = 2)$clustering
+    return(sum(p_clust == 1)/length(p_clust))
   })
   prop_df <- setNames(
     data.frame(cbind(unique_points, proportion)),
@@ -921,13 +936,15 @@ bimodal_emulator_from_data <- function(data, output_names, ranges,
   prop_em <- emulator_from_data(prop_df,
                                 c('prop'), ranges, verbose = FALSE, ...)
   if (verbose) cat("Performing clustering to identify modes.\n") #nocov
-  has_bimodality <- setNames(
-    do.call('rbind.data.frame', purrr::map(param_sets, function(x) {
+  has_bimodality <- do.call('rbind.data.frame', purrr::map(param_sets, function(x) {
     purrr::map_lgl(output_names, function(y) {
       if (length(unique(x[,y])) == 1) return(FALSE)
-      return(Mclust(x[,y], G = 1:2, verbose = FALSE)$G == 2)
+      clust1 <- fanny(suppressWarnings(daisy(x[,y, drop = FALSE])), k = 1)
+      clust2 <- fanny(suppressWarnings(daisy(x[,y, drop = FALSE])), k = 2)
+      if (clust1$objective[["objective"]] < clust2$objective[["objective"]]) return(FALSE)
+      return(TRUE)
     })
-  })), output_names)
+  })) |> setNames(output_names)
   is_bimodal_target <- apply(
     has_bimodality, 2,
     function(x) sum(x)/length(x) >= 0.1)
@@ -954,8 +971,7 @@ bimodal_emulator_from_data <- function(data, output_names, ranges,
         c2_data[[length(c2_data)+1]] <- param_sets[[i]]
       }
       else {
-        this_clust <- Mclust(param_sets[[i]][,x], G = 1:2,
-                             verbose = FALSE)$classification
+        this_clust <- fanny(suppressWarnings(daisy(param_sets[[i]][,x, drop = FALSE])), k = 2)$clustering
         c1_data[[length(c1_data)+1]] <- param_sets[[i]][this_clust == 1,]
         c2_data[[length(c2_data)+1]] <- param_sets[[i]][this_clust == 2,]
       }

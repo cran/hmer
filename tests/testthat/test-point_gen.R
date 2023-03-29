@@ -29,19 +29,10 @@ test_that("Point generation methods", {
   points_slice <- generate_new_runs(
     ems, 100, targs, method = c('slice'),
     plausible_set = points_line[1:50,], cutoff = 3,
-    resample = 0, verbose = FALSE, pca = TRUE
-  )
-  expect_equal(
-    nrow(points_slice),
-    100
-  )
-  points_optical <- generate_new_runs(
-    ems, 100, targs, method = c('optical'),
-    plausible_set = points_line[1:50,], nth = 2,
     resample = 0, verbose = FALSE
   )
   expect_equal(
-    nrow(points_optical),
+    nrow(points_slice),
     100
   )
   points_importance <- generate_new_runs(
@@ -56,7 +47,7 @@ test_that("Point generation methods", {
   points_importance_sphere <- generate_new_runs(
     ems, 100, targs, method = c("importance"),
     plausible_set = points_line[1:50,], cutoff = 4,
-    resample = 0, verbose = FALSE, distro = "normal"
+    resample = 0, verbose = FALSE, imp_distro = "normal"
   )
   expect_equal(
     nrow(points_importance_sphere),
@@ -94,4 +85,23 @@ test_that("Forced laddering of implausibility", {
   expect_true(
     nrow(g2) < 100
   )
+})
+
+test_that("Optional pca arguments", {
+  skip_on_cran()
+  lhd_pca_prop <- generate_new_runs(ems, 100, targs, verbose = FALSE,
+                                    opts = list(pca_lhs = TRUE))
+  expect_equal(nrow(lhd_pca_prop), 100)
+  slice_pca_prop <- generate_new_runs(ems, 100, targs, method = c('lhs', 'slice'),
+                                      verbose = FALSE, opts = list(pca_slice = TRUE))
+  expect_equal(nrow(slice_pca_prop), 100)
+})
+
+test_that("Handling options via opts", {
+  skip_on_cran()
+  all_options <- generate_new_runs(ems, 100, targs, verbose = FALSE, opts = list(
+    accept_measure = "default", cluster = FALSE, cutoff_tolerance = 0.01,
+    ladder_tolerance = 0.1, nth = 1, resample = 0, seek = 0
+  ))
+  expect_true(nrow(all_options) == 100)
 })

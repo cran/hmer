@@ -12,7 +12,7 @@
 
 <meta name="author" content="Andy Iskauskas" />
 
-<meta name="date" content="2022-11-08" />
+<meta name="date" content="2023-03-29" />
 
 <title>Emulation and History Matching Handbook</title>
 
@@ -342,7 +342,7 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 <h1 class="title toc-ignore">Emulation and History Matching
 Handbook</h1>
 <h4 class="author">Andy Iskauskas</h4>
-<h4 class="date">2022-11-08</h4>
+<h4 class="date">2023-03-29</h4>
 
 
 
@@ -617,8 +617,8 @@ structure of the data.</p>
 <span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Target output18 consistently overestimated.</span></span>
 <span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Some outputs may not be adequately emulated, due to consistent over/underestimation in training data.</span></span>
 <span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Consider looking at the outputs (using, eg, behaviour_plot); some outputs may require extra runs and/or transformation.</span></span>
-<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning in emulator_from_data(problem_data$data, names(problem_data$targets), : Fewer than 210 non-</span></span>
-<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; NA points in 21 dimensions - treat the emulated outputs with caution, or include more training points</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning in emulator_from_data(problem_data$data, names(problem_data$targets), : Fewer than 210 non-NA</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; points in 21 dimensions - treat the emulated outputs with caution, or include more training points</span></span>
 <span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; (minimum 10 times the number of input parameters).</span></span>
 <span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Fitting regression surfaces...</span></span>
 <span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Building correlation structures...</span></span>
@@ -732,8 +732,8 @@ values.</p>
 <p class="caption">plot of chunk problem-imp</p>
 </div>
 <div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>new_emulator <span class="ot">&lt;-</span> <span class="fu">emulator_from_data</span>(logit_data_first, <span class="fu">c</span>(<span class="st">&#39;output7&#39;</span>), problem_data<span class="sc">$</span>ranges)</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning in emulator_from_data(logit_data_first, c(&quot;output7&quot;), problem_data$ranges): Fewer than 210 non-</span></span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; NA points in 21 dimensions - treat the emulated outputs with caution, or include more training points</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Warning in emulator_from_data(logit_data_first, c(&quot;output7&quot;), problem_data$ranges): Fewer than 210 non-NA</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; points in 21 dimensions - treat the emulated outputs with caution, or include more training points</span></span>
 <span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; (minimum 10 times the number of input parameters).</span></span>
 <span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Fitting regression surfaces...</span></span>
 <span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Building correlation structures...</span></span>

@@ -1,7 +1,7 @@
 ---
 title: "Emulation and History Matching Handbook"
 author: "Andy Iskauskas"
-date: "2022-11-08"
+date: "2023-03-29"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{Emulation and History Matching Handbook}
@@ -149,8 +149,8 @@ problem_ems <- emulator_from_data(problem_data$data, names(problem_data$targets)
 #> Target output18 consistently overestimated.
 #> Some outputs may not be adequately emulated, due to consistent over/underestimation in training data.
 #> Consider looking at the outputs (using, eg, behaviour_plot); some outputs may require extra runs and/or transformation.
-#> Warning in emulator_from_data(problem_data$data, names(problem_data$targets), : Fewer than 210 non-
-#> NA points in 21 dimensions - treat the emulated outputs with caution, or include more training points
+#> Warning in emulator_from_data(problem_data$data, names(problem_data$targets), : Fewer than 210 non-NA
+#> points in 21 dimensions - treat the emulated outputs with caution, or include more training points
 #> (minimum 10 times the number of input parameters).
 #> Fitting regression surfaces...
 #> Building correlation structures...
@@ -232,8 +232,8 @@ plot(problem_ems[[7]], plot_type = 'imp', params = c('input9', 'input15'), fixed
 
 ```r
 new_emulator <- emulator_from_data(logit_data_first, c('output7'), problem_data$ranges)
-#> Warning in emulator_from_data(logit_data_first, c("output7"), problem_data$ranges): Fewer than 210 non-
-#> NA points in 21 dimensions - treat the emulated outputs with caution, or include more training points
+#> Warning in emulator_from_data(logit_data_first, c("output7"), problem_data$ranges): Fewer than 210 non-NA
+#> points in 21 dimensions - treat the emulated outputs with caution, or include more training points
 #> (minimum 10 times the number of input parameters).
 #> Fitting regression surfaces...
 #> Building correlation structures...
