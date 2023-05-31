@@ -61,6 +61,19 @@ function_to_names <- function(f, var_names, function_form = TRUE) {
   return(subbed)
 }
 
+name_to_function <- function(str, var_names) {
+  if (str == "(Intercept)") return(function(x) 1)
+  str_power <- gsub("I\\((.*)\\^(\\d+)\\)", "\\1\\^\\2", str)
+  str_times <- gsub(":", "*", str_power)
+  str_par <- str_times
+  var_names_ordered <- var_names[order(nchar(var_names), var_names,  decreasing = TRUE)]
+  for (i in seq_along(var_names_ordered)) {
+    str_par <- gsub(var_names_ordered[i], paste0("\u00a3\u00a3\u00a3\u00a3[[", which(var_names == var_names_ordered[i]), "]]\\1"), str_par)
+  }
+  str_par <- gsub("\u00a3\u00a3\u00a3\u00a3", "x", str_par)
+  return(eval(parse(text = paste('function(x) return(', str_par, ')', sep = ''))))
+}
+
 # Evaluate multiple functions over points
 eval_funcs <- function(funcs, points, ...) {
   pointsdim <- (length(dim(points)) != 0)
@@ -178,8 +191,8 @@ get_truncation <- function(e, v, mu = TRUE, nu = 6, a = 0, b = Inf) {
 #'
 #' It can be useful to consider only a subset of outputs. In the normal case, this can be
 #' easily achieved; however, when the emulators are in a nested structure such as that
-#' provided by variance_emulator_from_data or bimodal_emulator_from_data, it can be more
-#' involved. This function allows the easy selecting of emulators by name, returning a
+#' provided by emulator_from_data with emulator_type = 'variance' or 'bimodal', it can
+#' be more involved. This function allows the easy selecting of emulators by name, returning a
 #' subset of them in the same form as the original object.
 #'
 #' This function is compatible with `standard' emulators; that is, those in a simple
@@ -239,7 +252,7 @@ subset_emulators <- function(emulators, output_names) {
 #'
 #' Manipulates lists (or lists of lists) of emulators into a useable form.
 #'
-#' Most often used as a pre-processing stage for \code{generate_new_runs} or
+#' Most often used as a pre-processing stage for \code{generate_new_design} or
 #' \code{nth_implausible}, this takes a list of emulators in a variety of forms
 #' coming from either multiple waves of history matching, hierarchical emulation
 #' or bimodal emulation, and arrange them in a form suitable for sequential analysis.
@@ -300,7 +313,8 @@ collect_emulators <- function(emulators, targets = NULL, cutoff = 3,
       }
       maximal_ranges <- purrr::map(emulators, "ranges")[[which.max(purrr::map_dbl(emulators, ~length(.$ranges)))]]
       sample_points <- do.call('cbind.data.frame', purrr::map(maximal_ranges, ~runif(sample_size, min = .[[1]], max = .[[2]]))) |> setNames(names(maximal_ranges))
-      em_imps <- do.call('cbind', purrr::map(emulators, ~.$implausibility(sample_points, targets[[.$output_name]], cutoff = cutoff)))
+      if (length(cutoff) == 1) cutoff <- rep(cutoff, length(emulators))
+      em_imps <- do.call('cbind', purrr::map(seq_along(emulators), ~emulators[[.]]$implausibility(sample_points, targets[[emulators[[.]]$output_name]], cutoff = cutoff[[.]])))
       imp_restriction <- apply(em_imps, 2, sum)
       em_ordering <- do.call(order, list(-em_range_lengths, imp_restriction, em_range_prods)[which_ordering])
     } else {

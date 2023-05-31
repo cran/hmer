@@ -12,7 +12,7 @@
 
 <meta name="author" content="Andy Iskauskas" />
 
-<meta name="date" content="2023-03-29" />
+<meta name="date" content="2023-05-03" />
 
 <title>Low Dimensional Examples</title>
 
@@ -31,23 +31,23 @@ document.addEventListener('DOMContentLoaded', function(e) {
 </script>
 
 <style type="text/css">
-  code{white-space: pre-wrap;}
-  span.smallcaps{font-variant: small-caps;}
-  span.underline{text-decoration: underline;}
-  div.column{display: inline-block; vertical-align: top; width: 50%;}
-  div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
-  ul.task-list{list-style: none;}
-    </style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+span.underline{text-decoration: underline;}
+div.column{display: inline-block; vertical-align: top; width: 50%;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+</style>
 
 
 
 <style type="text/css">
-  code {
-    white-space: pre;
-  }
-  .sourceCode {
-    overflow: visible;
-  }
+code {
+white-space: pre;
+}
+.sourceCode {
+overflow: visible;
+}
 </style>
 <style type="text/css" data-origin="pandoc">
 pre > code.sourceCode { white-space: pre; position: relative; }
@@ -65,55 +65,54 @@ pre > code.sourceCode { white-space: pre-wrap; }
 pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
 }
 pre.numberSource code
-  { counter-reset: source-line 0; }
+{ counter-reset: source-line 0; }
 pre.numberSource code > span
-  { position: relative; left: -4em; counter-increment: source-line; }
+{ position: relative; left: -4em; counter-increment: source-line; }
 pre.numberSource code > span > a:first-child::before
-  { content: counter(source-line);
-    position: relative; left: -1em; text-align: right; vertical-align: baseline;
-    border: none; display: inline-block;
-    -webkit-touch-callout: none; -webkit-user-select: none;
-    -khtml-user-select: none; -moz-user-select: none;
-    -ms-user-select: none; user-select: none;
-    padding: 0 4px; width: 4em;
-    color: #aaaaaa;
-  }
-pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa;  padding-left: 4px; }
+{ content: counter(source-line);
+position: relative; left: -1em; text-align: right; vertical-align: baseline;
+border: none; display: inline-block;
+-webkit-touch-callout: none; -webkit-user-select: none;
+-khtml-user-select: none; -moz-user-select: none;
+-ms-user-select: none; user-select: none;
+padding: 0 4px; width: 4em;
+color: #aaaaaa;
+}
+pre.numberSource { margin-left: 3em; border-left: 1px solid #aaaaaa; padding-left: 4px; }
 div.sourceCode
-  {   }
+{ }
 @media screen {
 pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
 }
-code span.al { color: #ff0000; font-weight: bold; } /* Alert */
-code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } /* Annotation */
-code span.at { color: #7d9029; } /* Attribute */
-code span.bn { color: #40a070; } /* BaseN */
-code span.bu { } /* BuiltIn */
-code span.cf { color: #007020; font-weight: bold; } /* ControlFlow */
-code span.ch { color: #4070a0; } /* Char */
-code span.cn { color: #880000; } /* Constant */
-code span.co { color: #60a0b0; font-style: italic; } /* Comment */
-code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } /* CommentVar */
-code span.do { color: #ba2121; font-style: italic; } /* Documentation */
-code span.dt { color: #902000; } /* DataType */
-code span.dv { color: #40a070; } /* DecVal */
-code span.er { color: #ff0000; font-weight: bold; } /* Error */
-code span.ex { } /* Extension */
-code span.fl { color: #40a070; } /* Float */
-code span.fu { color: #06287e; } /* Function */
-code span.im { } /* Import */
-code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } /* Information */
-code span.kw { color: #007020; font-weight: bold; } /* Keyword */
-code span.op { color: #666666; } /* Operator */
-code span.ot { color: #007020; } /* Other */
-code span.pp { color: #bc7a00; } /* Preprocessor */
-code span.sc { color: #4070a0; } /* SpecialChar */
-code span.ss { color: #bb6688; } /* SpecialString */
-code span.st { color: #4070a0; } /* String */
-code span.va { color: #19177c; } /* Variable */
-code span.vs { color: #4070a0; } /* VerbatimString */
-code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } /* Warning */
-
+code span.al { color: #ff0000; font-weight: bold; } 
+code span.an { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.at { color: #7d9029; } 
+code span.bn { color: #40a070; } 
+code span.bu { color: #008000; } 
+code span.cf { color: #007020; font-weight: bold; } 
+code span.ch { color: #4070a0; } 
+code span.cn { color: #880000; } 
+code span.co { color: #60a0b0; font-style: italic; } 
+code span.cv { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.do { color: #ba2121; font-style: italic; } 
+code span.dt { color: #902000; } 
+code span.dv { color: #40a070; } 
+code span.er { color: #ff0000; font-weight: bold; } 
+code span.ex { } 
+code span.fl { color: #40a070; } 
+code span.fu { color: #06287e; } 
+code span.im { color: #008000; font-weight: bold; } 
+code span.in { color: #60a0b0; font-weight: bold; font-style: italic; } 
+code span.kw { color: #007020; font-weight: bold; } 
+code span.op { color: #666666; } 
+code span.ot { color: #007020; } 
+code span.pp { color: #bc7a00; } 
+code span.sc { color: #4070a0; } 
+code span.ss { color: #bb6688; } 
+code span.st { color: #4070a0; } 
+code span.va { color: #19177c; } 
+code span.vs { color: #4070a0; } 
+code span.wa { color: #60a0b0; font-weight: bold; font-style: italic; } 
 </style>
 <script>
 // apply pandoc div.sourceCode style to pre.sourceCode instead
@@ -341,14 +340,15 @@ code > span.er { color: #a61717; background-color: #e3d2d2; }
 
 <h1 class="title toc-ignore">Low Dimensional Examples</h1>
 <h4 class="author">Andy Iskauskas</h4>
-<h4 class="date">2023-03-29</h4>
+<h4 class="date">2023-05-03</h4>
 
 
 
 <div class="sourceCode" id="cb1"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(hmer)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(lhs)</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(ggplot2)</span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span></code></pre></div>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; RStudio Community is a great place to get help: https://community.rstudio.com/c/tidyverse</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">set.seed</span>(<span class="dv">1</span>)</span></code></pre></div>
 <div id="one-dimensional-example-sine-function" class="section level1">
 <h1>One-dimensional Example: Sine Function</h1>
 <div id="setup" class="section level2">
@@ -554,7 +554,7 @@ may not be available to a particular output. An alternative is to define
 the target as a range of values that could be taken: for example in this
 case we could define a similar target to the above as</p>
 <div class="sourceCode" id="cb10"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>target1d_alt <span class="ot">&lt;-</span> <span class="fu">list</span>(<span class="at">f =</span> <span class="fu">c</span>(<span class="sc">-</span><span class="fl">0.1</span>, <span class="fl">0.1</span>))</span></code></pre></div>
-<p>The <code>generate_new_runs</code> function is used to propose new
+<p>The <code>generate_new_design</code> function is used to propose new
 points. There are a multitude of different methods that can be used to
 propose the new points: in this particular one-dimensional case, it
 makes sense to take the most basic approach. This is to generate a large
@@ -562,7 +562,7 @@ number of space-filling points, reject those that the emulator rules out
 as implausible, and select the subset of the remaining points that has
 the maximal minimum distance between them (so as to cover as much of the
 non-implausible space as possible).</p>
-<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>new_points1d <span class="ot">&lt;-</span> <span class="fu">generate_new_runs</span>(em1d, <span class="dv">10</span>, target1d, <span class="at">method =</span> <span class="st">&#39;lhs&#39;</span>)</span>
+<div class="sourceCode" id="cb11"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>new_points1d <span class="ot">&lt;-</span> <span class="fu">generate_new_design</span>(em1d, <span class="dv">10</span>, target1d, <span class="at">method =</span> <span class="st">&#39;lhs&#39;</span>)</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Proposing from LHS...</span></span>
 <span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Enough points generated from LHD - no need to apply other methods.</span></span>
 <span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Selecting final points using maximin criterion...</span></span></code></pre></div>
@@ -660,7 +660,7 @@ However, we still have the emulator from the first wave, which contains
 all the information of the previous training runs by design. In this
 wave of history matching, therefore, we use both the first- and
 second-wave emulator to propose points.</p>
-<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>new_new_points1d <span class="ot">&lt;-</span> <span class="fu">generate_new_runs</span>(<span class="fu">c</span>(em1d_2, em1d), <span class="dv">10</span>, <span class="at">z =</span> target1d, <span class="at">method =</span> <span class="st">&#39;lhs&#39;</span>)</span>
+<div class="sourceCode" id="cb14"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>new_new_points1d <span class="ot">&lt;-</span> <span class="fu">generate_new_design</span>(<span class="fu">c</span>(em1d_2, em1d), <span class="dv">10</span>, <span class="at">z =</span> target1d, <span class="at">method =</span> <span class="st">&#39;lhs&#39;</span>)</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Proposing from LHS...</span></span>
 <span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Enough points generated from LHD - no need to apply other methods.</span></span>
 <span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Selecting final points using maximin criterion...</span></span>
@@ -927,7 +927,7 @@ one-dimensional emulator, where in that case the non-implausible region
 was easy to see graphically.</p>
 <p>We can now generate new points for a second wave of emulation. We
 again make a slight modification to the normal behaviour of the
-<code>generate_new_runs</code> function. By default it will use a
+<code>generate_new_design</code> function. By default it will use a
 space-filling argument before using those points to draw lines to the
 boundaries of the non-implausible space - the points on the boundary are
 included in the proposal. From this augmented set, we perform importance
@@ -937,7 +937,7 @@ and re-propose using the boundary search and importance sampling. This
 ‘resampling’ step can be repeated as many times as one desires (at a
 computational cost) and is useful in large-dimensional spaces; here we
 set <code>resample = 0</code> for efficiency’s sake.</p>
-<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>new_points2d <span class="ot">&lt;-</span> <span class="fu">generate_new_runs</span>(ems2d, <span class="dv">40</span>, targets2d, <span class="at">resample =</span> <span class="dv">0</span>)</span>
+<div class="sourceCode" id="cb26"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a>new_points2d <span class="ot">&lt;-</span> <span class="fu">generate_new_design</span>(ems2d, <span class="dv">40</span>, targets2d, <span class="at">resample =</span> <span class="dv">0</span>)</span>
 <span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Proposing from LHS...</span></span>
 <span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; LHS has high yield; no other methods required.</span></span>
 <span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Selecting final points using maximin criterion...</span></span>
@@ -949,7 +949,7 @@ set <code>resample = 0</code> for efficiency’s sake.</p>
 <p class="caption">plot of chunk gen-2d-points-first</p>
 </div>
 <p>With these new points, we want to train a new set of emulators. We
-generated 40 points from <code>generate_new_runs</code> so as to split
+generated 40 points from <code>generate_new_design</code> so as to split
 them into a training set and a validation set once more:</p>
 <div class="sourceCode" id="cb27"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a>sample2d <span class="ot">&lt;-</span> <span class="fu">sample</span>(<span class="dv">40</span>, <span class="dv">20</span>)</span>
 <span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>train2d <span class="ot">&lt;-</span> new_data2d[sample2d,]</span>
@@ -1025,7 +1025,7 @@ which we do here.</p>
 </div>
 <p>Finally, we propose points from a combination of this wave and the
 previous wave.</p>
-<div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>new_new_points2d <span class="ot">&lt;-</span> <span class="fu">generate_new_runs</span>(<span class="fu">c</span>(ems2d_2, ems2d), <span class="dv">40</span>, targets2d, <span class="at">resample =</span> <span class="dv">0</span>)</span>
+<div class="sourceCode" id="cb32"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a>new_new_points2d <span class="ot">&lt;-</span> <span class="fu">generate_new_design</span>(<span class="fu">c</span>(ems2d_2, ems2d), <span class="dv">40</span>, targets2d, <span class="at">resample =</span> <span class="dv">0</span>)</span>
 <span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Proposing from LHS...</span></span>
 <span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; LHS has high yield; no other methods required.</span></span>
 <span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; Selecting final points using maximin criterion...</span></span>
@@ -1066,7 +1066,7 @@ functions <code>simulator_plot</code>, <code>wave_points</code>, and
 </div>
 <p>We can see that, as the colour gets darker (representing later
 waves), the proposed points settle into the bounds of the targets. In
-fact, in this example, we cna start to consider whether further waves
+fact, in this example, we can start to consider whether further waves
 are necessary - the points proposed at the end of the first wave were
 predominantly suitable for representing the non-implausible region. We
 can consider this by looking at the emulator uncertainty in the second

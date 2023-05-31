@@ -1,7 +1,7 @@
 Package: hmer
 Type: Package
 Title: History Matching and Emulation Package
-Version: 1.4.0
+Version: 1.5.0
 Authors@R: c(person("Andrew", "Iskauskas", email = "andrew.iskauskas@durham.ac.uk", comment = c(ORCID = "0000-0003-2825-3651"), role = c('aut', 'cre')),
   person("TJ", "McKinley", email = "t.mckinley@exeter.ac.uk", comment = c(ORCID = "0000-0002-9485-3236"), role = c('aut')))
 Maintainer: Andrew Iskauskas <andrew.iskauskas@durham.ac.uk>
@@ -27,8 +27,8 @@ RoxygenNote: 7.2.3
 Language: en-GB
 Config/testthat/edition: 3
 NeedsCompilation: no
-Packaged: 2023-03-29 19:31:04 UTC; andy
+Packaged: 2023-05-31 10:02:57 UTC; andy
 Author: Andrew Iskauskas [aut, cre] (<https://orcid.org/0000-0003-2825-3651>),
   TJ McKinley [aut] (<https://orcid.org/0000-0002-9485-3236>)
 Repository: CRAN
-Date/Publication: 2023-03-29 19:50:02 UTC
+Date/Publication: 2023-05-31 10:20:02 UTC
