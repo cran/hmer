@@ -130,7 +130,7 @@ does not match any of the above options. If the data provided looks to display s
 but default behaviour is used, a warning will be generated and only the first model result
 for each individual parameter set will be used in training.
 
-For examples of this function's usage (including optinal argument behaviour), see the examples.
+For examples of this function's usage (including optional argument behaviour), see the examples.
 }
 \examples{
 # Deterministic: use the SIRSample training dataset as an example.

@@ -109,23 +109,31 @@ get_coefficient_model <- function(data, ranges, output_name, add = FALSE,
   }
   else
     upper_form <- u_form
-  if (!add && verbose && choose(length(ranges) + order, length(ranges)) > nrow(data)) {
-    warning(paste("Maximum number of regression terms is greater than",
-                  "the available degrees of freedom. Changing to add = TRUE."))
+  if (!add && choose(length(ranges) + order, length(ranges)) > nrow(data)) {
+    if (verbose)
+      warning(paste("Maximum number of regression terms is greater than",
+                    "the available degrees of freedom. Changing to add = TRUE."))
     add <- TRUE
   }
   if (!"data.frame" %in% class(data))
     data <- setNames(data.frame(data), c(names(ranges), output_name))
-  if (add) {
-    model <- step(lm(formula = lower_form, data = data),
-                  scope = list(lower = lower_form, upper = upper_form),
-                  direction = "both", trace = 0, k = log(nrow(data)))
-  }
-  else {
-    model <- step(lm(formula = upper_form, data = data),
-                  scope = list(lower = lower_form, upper = upper_form),
-                  direction = "backward", trace = 0, k = log(nrow(data)))
-  }
+  model <- tryCatch({
+    if (add) {
+      return(step(lm(formula = lower_form, data = data),
+                    scope = list(lower = lower_form, upper = upper_form),
+                    direction = "both", trace = 0, k = log(nrow(data))))
+    }
+    else {
+      return(step(lm(formula = upper_form, data = data),
+                    scope = list(lower = lower_form, upper = upper_form),
+                    direction = "backward", trace = 0, k = log(nrow(data))))
+    }
+  },
+  error = function(e) {
+    warning(paste("Model selection suggests perfect fit for output", output_name, "- possible overfitting issue. Removing this output from emulation."))
+    return(NULL)
+  })
+  if (is.null(model)) return(model)
   if (order != 1) {
     mod_coeffs <- summary(model)$coefficients[-1,]
     mod_anv <- anova(model)
@@ -387,7 +395,7 @@ hyperparameter_estimate <- function(inputs, outputs, model, corr_name = "exp_sq"
 #' but default behaviour is used, a warning will be generated and only the first model result
 #' for each individual parameter set will be used in training.
 #'
-#' For examples of this function's usage (including optinal argument behaviour), see the examples.
+#' For examples of this function's usage (including optional argument behaviour), see the examples.
 #'
 #' @param input_data Required. A data.frame containing parameter and output values
 #' @param output_names Required. A character vector of output names
@@ -531,10 +539,11 @@ emulator_from_data <- function(input_data, output_names, ranges,
   if (emulator_type == "multistate")
     input_data_backup <- input_data
   if (is.data.frame(input_data)) {
-    unique_hash <- apply(unique(input_data[, input_names, drop = FALSE]), 1, hash)
-    data_by_point <- purrr::map(unique_hash, function(x) {
-      input_data[apply(input_data[,names(ranges),drop = FALSE], 1, hash) == x,]
-    })
+    data_by_point <- split_dataset(input_data, input_names)
+    # unique_hash <- unique(apply(input_data[, input_names, drop = FALSE], 1, hash))
+    # data_by_point <- purrr::map(unique_hash, function(x) {
+    #   input_data[apply(input_data[,names(ranges),drop = FALSE], 1, hash) == x,]
+    # })
     if (any(purrr::map_dbl(data_by_point, nrow) > 1) && emulator_type == "default") {
       if (FALSE) {
         ## Hidden for now. Might change this at some point!
@@ -623,6 +632,10 @@ emulator_from_data <- function(input_data, output_names, ranges,
       if (verbose) cat("Fitting regression surfaces...\n") #nocov
       models <- purrr::map(data, ~get_coefficient_model(., ranges, names(.)[length(.)],
                                                         order = order, verbose = more_verbose))
+      output_names <- output_names[!purrr::map_lgl(models, is.null)]
+      models <- models[!purrr::map_lgl(models, is.null)]
+      if (length(models) == 0)
+        stop("No outputs can be robustly represented by regression surfaces at this order.")
       model_beta_mus <- purrr::map(models, coef)
       model_basis_funcs <- purrr::map(models, function(m) {
         purrr::map(names(m$coefficients), name_to_function, names(ranges))
@@ -790,29 +803,25 @@ emulator_from_data <- function(input_data, output_names, ranges,
   }
   ## Variance emulation starts here
   if (verbose) cat("Multiple model runs per point detected. Splitting by input parameters...\n") #nocov
-  unique_uids <- Reduce(union, purrr::map(input_data, function(dat) {
-    c(apply(unique(dat[,input_names]), 1, hash), use.names = FALSE)
-  }))
-  data_by_point <- purrr::map(input_data, function(dat) {
-    unique_hash <- apply(unique(dat[,input_names]), 1, hash)
-    purrr::map(unique_hash, function(x) {
-      dat[apply(dat[,names(ranges)], 1, hash) == x,]
-    })
-  })
+  unique_points <- unique(do.call('rbind.data.frame', purrr::map(input_data, ~.[,input_names])))
+  unique_uids <- apply(unique_points, 1, hash)
+  data_by_point <- purrr::map(input_data, split_dataset, input_names)
   data_by_point <- purrr::map(data_by_point, function(dat) {
     dat[purrr::map_lgl(dat, ~nrow(.) > 1)]
   })
+  split_hashes <- purrr::map(data_by_point, function(d) {
+    purrr::map_chr(d, ~apply(.[,input_names], 1, hash)[1])
+  })
   param_sets <- purrr::map(unique_uids, function(uid) {
-    output_vals <- purrr::map(data_by_point, function(d) {
-      hashes <- purrr::map_chr(d, ~unique(apply(.[,input_names], 1, hash)))
-      which_matches <- which(hashes == uid)
+    output_vals <- purrr::map(seq_along(split_hashes), function(sh) {
+      which_matches <- which(split_hashes[[sh]] == uid)
       if (length(which_matches) == 0) return(NULL)
-      return(c(d[[which_matches[1]]][,length(d[[which_matches[1]]])]))
+      return(c(data_by_point[[sh]][[which_matches[1]]][,length(data_by_point[[sh]][[which_matches[1]]])]))
     })
     largest_length <- max(purrr::map_dbl(output_vals, length))
     output_vals_padded <- purrr::map(output_vals, ~c(., rep(NA, largest_length-length(.))))
-    which_matches <- which(apply(do.call('rbind.data.frame', purrr::map(input_data, ~.[,input_names])), 1, hash) == uid)[1]
-    which_point <- do.call('rbind.data.frame', purrr::map(input_data, ~.[,input_names]))[which_matches, input_names]
+    which_matches <- which(unique_uids == uid)[1]
+    which_point <- unique_points[which_matches,]
     return(cbind.data.frame(which_point[rep(1,largest_length),], do.call('cbind.data.frame', output_vals_padded)) |>
              setNames(c(input_names, output_names)))
   })
@@ -1110,7 +1119,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
   ### Covariance emulation here...
   if (emulator_type == "covariance") {
     name_to_time <- function(names) {
-      t_names <- sub("\\.*[^\\d](\\d+)$", "\\1", names)
+      t_names <- sub(".*[^\\d](\\d+)$", "\\1", names, perl = TRUE)
       return(suppressWarnings(as.numeric(t_names)))
     }
     multi_point_cov <- function(i, j, x, theta.t, rho, v_ems) {
@@ -1162,6 +1171,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
       predict_func <- function(x) return(rep(0, max(1,nrow(x)))),
       variance_func <- function(x) return(rep(1, max(1,nrow(x))))
     )
+    ## Got to at least here
     init_cov_mat <- matrix(nrow = length(variance_emulators), ncol = length(variance_emulators))
     init_cov_mat[upper.tri(init_cov_mat) & covariance_opts$matrix] <- init_cov_ems
     init_cov_mat <- matrix(init_cov_mat, nrow = length(variance_emulators), ncol = length(variance_emulators))
@@ -1194,6 +1204,7 @@ emulator_from_data <- function(input_data, output_names, ranges,
     trained_cov_mat[upper.tri(trained_cov_mat) & !covariance_opts$matrix] <- list(zero_em)
     trained_cov_mat[col(trained_cov_mat) == row(trained_cov_mat)] <- trained_var_ems
   }
+  ## Couldn't have got to here
   ## Mean emulators
   if (verbose) {
     if (emulator_type == "covariance")
