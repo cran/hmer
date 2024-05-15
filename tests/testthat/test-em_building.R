@@ -59,6 +59,7 @@ test_that("Emulator training: orn_uhl, no ranges, few points", {
       c('nS', 'nI', 'nR'),
       input_names = c('aSI', 'aIR', 'aSR'),
       corr_name = "orn_uhl",
+      check.ranges = FALSE,
       verbose = FALSE
     )
   )
@@ -242,5 +243,20 @@ test_that("Desired emulators don't match data specifications", {
                        list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
                        emulator_type = "variance", verbose = FALSE),
     "emulator_type is not default"
+  )
+})
+
+test_that("Emulator training: too many terms", {
+  expect_warning(
+    em_too_many <- emulator_from_data(SIRSample$training[1:15,], names(SIREmulators$targets),
+                       list(aSI = c(0.1, 0.8), aIR = c(0, 0.5), aSR = c(0, 0.05)),
+                       order = 3, verbose = FALSE, more_verbose = TRUE)
+  )
+})
+
+test_that("Emulator training: bad ranges", {
+  expect_error(
+    em_no_range <- emulator_from_data(SIRSample$training, names(SIREmulators$targets),
+                                      list(aSI = c(0.1, 0.8), aIR = c(0, 0), aSR = c(0, 0.05)))
   )
 })

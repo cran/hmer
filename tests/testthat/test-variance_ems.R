@@ -164,4 +164,33 @@ test_that("Covariance emulation building - specified covariance elements", {
   expect_true(
     all(apply(cov_preds, 3, function(x) all(round(eigen(x)$values, 6) >= 0)))
   )
+  cov_covs <- cov_ems_spec$variance$get_cov(unique(SIR_stochastic$training[,1:3])[1:3,])
+  expect_equal(
+    dim(cov_covs),
+    c(4,4,3)
+  )
+  cov_uncert <- cov_ems_spec$variance$get_uncertainty(unique(SIR_stochastic$training[,1:3])[1:3,],
+                                              cov_ems_spec$expectation)
+  expect_equal(
+    dim(cov_uncert),
+    c(4,4,3)
+  )
+})
+
+test_that("Variance emulation - point proposal", {
+  pts <- generate_new_design(v_em, 100, list(Y = c(90, 105)), verbose = FALSE)
+  expect_equal(
+    nrow(pts),
+    100
+  )
+})
+
+test_that("Variance emulation - point proposal with seek_good", {
+  skip_on_cran()
+  pts <- generate_new_design(v_em, 100, list(Y = c(90, 105)), verbose = FALSE,
+                             opts = list(seek = 10))
+  expect_equal(
+    nrow(pts),
+    100
+  )
 })
