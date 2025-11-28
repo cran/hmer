@@ -75,7 +75,25 @@ in_range <- function(data, ranges) {
     all(map_lgl(seq_along(ranges),
                        ~x[.] >= ranges[[.]][1] && x[.] <= ranges[[.]][2])))
 }
-## Function to obtain a maximin sample from a set of proposed points
+#' Generate Maximin Sample of Points
+#'
+#' Create a maximin sample from a collection of valid points
+#'
+#' The point proposal methods in \code{\link{generate_new_design}} can have some
+#' undesirable properties; particularly over-representation of the boundary of
+#' the non-implausible space. This function attempts to find an 'optimal' space-
+#' filling design, using the maximin criteria. A subset of the candidate points
+#' are selected and the minimum distance between any pair of points is selected;
+#' the subset of points which maximises this measure is returned.
+#'
+#' @param points The candidate points to select from.
+#' @param n The number of points desired in the final selection.
+#' @param reps The number of subselections to make before returning a choice
+#' @param nms The names of the inputs parameters of the points.
+#'
+#' @return A data.frame containing the maximin subset.
+#'
+#' @export
 maximin_sample <- function(points, n, reps = 1000, nms) {
   c_measure <- op <- NULL
   opts <- map(1:reps, function(rep) {
@@ -204,6 +222,7 @@ maximin_sample <- function(points, n, reps = 1000, nms) {
 #' @param cutoff The value of the cutoff to use to assess suitability.
 #' @param plausible_set An optional set of known non-implausible points, to avoid LHD sampling.
 #' @param verbose Should progress statements be printed to the console?
+#' @param thin Should maximin sampling be applied as part of the proposal stage?
 #' @param opts A named list of opts as described.
 #' @param ... Any parameters to pass via chaining to individual sampling functions (eg \code{distro}
 #' for importance sampling or \code{ordering} for collecting emulators).
@@ -233,7 +252,7 @@ maximin_sample <- function(points, n, reps = 1000, nms) {
 #'   opts = list(accept_measure = custom_measure))
 #'  }
 generate_new_design <- function(ems, n_points, z, method = "default", cutoff = 3,
-                              plausible_set, verbose = interactive(),
+                              plausible_set, verbose = interactive(), thin = TRUE,
                               opts = NULL, ...) {
   if (is.null(opts)) opts <- list(...)
   else {
@@ -398,7 +417,7 @@ generate_new_design <- function(ems, n_points, z, method = "default", cutoff = 3
         extra_points <- seek_good(ems, z, points, cutoff, verbose, opts)
       }
       else extra_points <- NULL
-      if (nrow(points) > n_points - opts$seek) {
+      if (nrow(points) > n_points - opts$seek && thin) {
         if (verbose) cat("Selecting final points using maximin criterion...\n") #nocov
         points <- maximin_sample(points, n_points - opts$seek, nms = names(ranges))
       }
@@ -635,7 +654,7 @@ generate_new_design <- function(ems, n_points, z, method = "default", cutoff = 3
     extra_points <- seek_good(ems, z, points, cutoff, verbose, opts)
   }
   else extra_points <- NULL
-  if (nrow(points) > n_points - opts$seek) {
+  if (nrow(points) > n_points - opts$seek && thin) {
     if (verbose) cat("Selecting final points using maximin criterion...\n") #nocov
     points <- maximin_sample(points, n_points - opts$seek, nms = names(ranges))
   }
@@ -649,7 +668,6 @@ lhs_gen <- function(ems, ranges, n_points, z, cutoff = 3, verbose, opts = NULL) 
   if (is.null(opts$points.factor)) opts$points.factor <- 40
   tryCatch(opts$points.factor <- as.numeric(opts$points.factor),
            warning = function(e) {warning("opts$points.factor is not numeric; setting to 40"); opts$points.factor <- 40})
-
   if (is.null(opts$pca_lhs) || !is.logical(opts$pca_lhs)) opts$pca_lhs <- FALSE
   if (opts$pca_lhs) {
     if (!is.null(ems$expectation)) {
@@ -680,6 +698,17 @@ lhs_gen <- function(ems, ranges, n_points, z, cutoff = 3, verbose, opts = NULL) 
     points <- eval_funcs(scale_input, setNames(
       data.frame(2* (randomLHS(n_points * opts$points.factor, length(ranges)) - 0.5)),
     names(ranges)), ranges, FALSE)
+  }
+  if (!is.null(opts$explore_corners) && opts$explore_corners) {
+    n_explore <- min(floor(opts$points_factor/10 * length(ranges)), 100)
+    sample_vals <- data.frame(matrix(sample(1:2, n_explore * length(ranges), replace = TRUE), ncol = length(ranges))) |>
+      setNames(names(ranges))
+    sample_vals <- sample_vals[!duplicated(sample_vals),]
+    corner_points <- do.call('cbind.data.frame', purrr::map(names(ranges), function(rnm) {
+      this_rng <- ranges[[rnm]]
+      return(this_rng[sample_vals[,rnm]])
+    })) |> setNames(names(ranges))
+    points <- rbind.data.frame(points, corner_points)
   }
   if (is.character(opts$accept_measure) && opts$accept_measure == "default") {
     imp_func <- function(ems, x, z, ...) nth_implausible(ems, x, z, n = opts$nth, ...)
@@ -896,7 +925,7 @@ lhs_gen_cluster <- function(ems, ranges, n_points, z, cutoff = 3, verbose = FALS
 }
 
 ## Line sampling function
-line_sample <- function(ems, ranges, z, s_points, cutoff = 3, opts) {
+line_sample <- function(ems, ranges, z, s_points, cutoff = 3, n_chain = 0, opts) {
   if (is.null(opts$n_lines)) opts$n_lines <- 20
   tryCatch(opts$n_lines <- as.numeric(opts$n_lines), warning = function(e) {warning("opts$n_lines not numeric; setting to 20"); opts$n_lines <- 20})
   if (is.null(opts$ppl)) opts$ppl <- 50
@@ -950,7 +979,13 @@ line_sample <- function(ems, ranges, z, s_points, cutoff = 3, opts) {
   })
   out_df <- rbind(s_points, do.call('rbind', include_pts))
   uniqueness <- row.names(unique(signif(out_df, 7)))
-  return(out_df[uniqueness,])
+  out_df <- out_df[uniqueness,]
+  if (nrow(out_df) == nrow(s_points) && n_chain < 5) {
+    new_opts <- opts
+    new_opts$ppl <- new_opts$ppl*2
+    return(line_sample(ems, ranges, z, s_points, cutoff, n_chain = n_chain+1, opts))
+  }
+  return(out_df)
 }
 
 importance_sample <- function(ems, n_points, z, s_points, cutoff = 3, opts) {

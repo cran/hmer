@@ -469,6 +469,241 @@ exp_sq_helper <- function(points, data, first_points, theta) {
   return(cbind(orig_corr, calced_corrs))
 }
 
+#' Export Emulators
+#'
+#' Exports emulators to non-R format
+#'
+#' While having emulators saved in a native-R format (for example, as part of
+#' an RData file) can be useful for fast loading, it might be prohibitive where
+#' space is a consideration, or where emulators might be imported into other
+#' languages. This function summarises the key features of deterministic
+#' emulators, either returning the compressed details as an object or returning
+#' a JSON file. If a filename is provided, then the JSON is automatically
+#' saved to the relevant location.
+#'
+#' @importFrom jsonlite toJSON prettify minify
+#'
+#' @param ems The (list of) emulators to convert
+#' @param inputs Any previous information from compressed emulators (mostly internal)
+#' @param filename If provided, the location to save the JSON file created
+#' @param output.type If filename = NULL, whether to return the JSON ("json") or object.
+#'
+#' @return Either the created object, or NULL if a filename is specified.
+#'
+#' @seealso import_emulator_from_json
+#'
+#' @examples
+#' # Using the SIREmulators
+#' ems <- SIREmulators$ems
+#' single_em_json <- export_emulator_to_json(ems[[1]], output.type = "json")
+#' single_em_json
+#' all_em_json <- export_emulator_to_json(ems, output.type = "json")
+#' # Checking with the corresponding import function
+#' reconstruct_em <- import_emulator_from_json(single_em_json)
+#' ems[[1]]
+#' reconstruct_em
+#'
+#' @export
+export_emulator_to_json <- function(ems, inputs = NULL, filename = NULL, output.type = "json") {
+  if ("Emulator" %in% class(ems)) {
+    input_ranges <- ems$ranges
+    out_name <- ems$output_name
+    input_uid <- NULL
+    if (!is.null(ems$in_data)) {
+      input_df <- cbind.data.frame(eval_funcs(scale_input, ems$in_data, input_ranges, forward = FALSE), ems$out_data) |>
+        setNames(c(names(input_ranges), out_name))
+      input_uid <- c(apply(input_df[,names(input_ranges)], 1, rlang::hash))
+      if (!is.null(inputs$data)) {
+        if (!out_name %in% names(inputs$data))
+          inputs$data[,out_name] <- NA
+        already_used <- input_uid %in% inputs$data$uid
+        for (ind in seq_along(already_used)) {
+          if (already_used[ind])
+            inputs$data[inputs$data$uid == input_uid[ind], out_name] <- input_df[ind, out_name]
+        }
+        input_subset <- cbind.data.frame(input_uid, input_df)[!already_used,] |> setNames(c("uid", names(input_df)))
+        if (nrow(input_subset) != 0) {
+          for (nm in names(inputs$data)) {
+            if (!nm %in% names(input_subset)) input_subset[,nm] <- NA
+          }
+          inputs$data <- rbind.data.frame(inputs$data, input_subset)
+        }
+      }
+      else {
+        inputs$data <- cbind.data.frame(input_uid, input_df) |> setNames(c("uid", names(input_df)))
+      }
+    }
+    inputs <- list(em = list(in.ranges = input_ranges,
+                             out.name = out_name,
+                             input.uid = input_uid,
+                             basis.f = ems$basis_f,
+                             basis.beta = ems$beta_mu,
+                             emulator.discrepancies = ems$disc,
+                             corr.name = ems$corr$corr_name,
+                             corr.sigma = ems$u_sigma,
+                             corr.details = ems$corr$hyper_p,
+                             nugget = ems$corr$nugget),
+                   data = inputs$data)
+  }
+  else {
+    if ("expectation" %in% names(ems) || "mode1" %in% names(ems))
+      stop("Variance or multistate emulators are not currently supported.")
+    ems <- collect_emulators(ems, ordering = "params")
+    for (i in seq_along(ems)) {
+      exported_em_details <- export_emulator_to_json(ems[[i]], inputs, output.type = "object")
+      inputs$ems[[paste0("emulator", length(inputs$ems)+1)]] <- exported_em_details$em
+      inputs$data <- exported_em_details$data
+    }
+  }
+  if (is.null(filename)) {
+    if (output.type == "json") return(toJSON(inputs, digits = NA) |> prettify())
+    else return(inputs)
+  }
+  else {
+    tryCatch(
+      write(jsonlite::toJSON(inputs, digits = NA) |> minify(), file = filename),
+      error = function(e) {
+        cat("File could not be saved; returning JSON output.", e)
+        return(toJSON(inputs, digits = NA) |> prettify())
+      }
+    )
+    cat("Output JSON saved to", filename)
+    return(NULL)
+  }
+}
+
+#' Import JSON Emulator Data
+#'
+#' Given a file containing emulator details, reconstruct a collection of emulators.
+#'
+#' For data generated from \code{\link{export_emulator_to_json}} (for example),
+#' emulators are recreated using the specifications therein. For each emulator,
+#' a call is made to \code{\link{emulator_from_data}} with \code{specified_priors}
+#' stipulated (so no retraining is performed, making the reconstruction fast).
+#'
+#' The structure of the JSON file used to import is relatively generic, and can
+#' be created outside of this package. For examples of the structure, see the
+#' code given in the companion export function.
+#'
+#' @importFrom jsonlite fromJSON
+#' @importFrom dplyr mutate_all
+#'
+#' @param filename Either a file location of a saved JSON file, or the string corresponding to it
+#' @param details Mainly internal; any already reconstructed emulators and their input data
+#'
+#' @returns The emulator objects, as a list.
+#'
+#' @seealso export_emulator_to_json
+#'
+#' @export
+import_emulator_from_json <- function(filename = NULL, details = NULL) {
+  if (!is.null(filename))
+    details <- jsonlite::fromJSON(filename)
+  input_data <- details$data
+  if (!is.null(details[['em']])) {
+    in_em_details <- details$em
+    if (any(purrr::map_lgl(names(in_em_details$in.ranges), ~any(grepl(., in_em_details$basis.f, fixed = TRUE))))) {
+      these_range_names <- names(in_em_details$in.ranges)
+      subbed_funcs <- lapply(in_em_details$basis.f, function(x) sub("\\s", " * ", x))
+      for (i in seq_along(these_range_names)) {
+        subbed_funcs <- lapply(subbed_funcs, function(x) sub(these_range_names[i], paste0("x[[", i, "]]"), x, fixed = TRUE))
+      }
+      function_matrix <- matrix(data = "", nrow = length(subbed_funcs), ncol = 2)
+      function_matrix[,2] <- paste0("return( ", subbed_funcs, " )")
+      function_matrix[,1] <- rep("function(x)", length(subbed_funcs))
+      in_em_details$basis.f <- function_matrix
+    }
+    beta_funcs <- c(unlist(apply(in_em_details$basis.f, 1, function(y) {
+      eval(parse(text = paste0("function(x)", sub("return\\((*.))\\)", "\\1", y[2]))))
+    })))
+    in_data <- input_data[input_data$uid %in% in_em_details$input.uid,]
+    in_em_details$corr.name <- sub("([A-Z])", paste0("_", "\\L\\1"), perl = TRUE, in_em_details$corr.name)
+    em <- emulator_from_data(mutate_all(in_data[,c(names(in_em_details$in.ranges), in_em_details$out.name)], as.numeric), in_em_details$out.name, in_em_details$in.ranges,
+                             discrepancies = list(in_em_details$emulator.discrepancies),
+                             specified_priors = list(func = list(beta_funcs), beta = list(list(mu = in_em_details$basis.beta)),
+                                                     u = list(list(sigma = in_em_details$corr.sigma,
+                                                                   corr = Correlator$new(in_em_details$corr.name,
+                                                                                         in_em_details$corr.details,
+                                                                                         nug = in_em_details$nugget)))),
+                             verbose = FALSE, more_verbose = FALSE, check.ranges = FALSE)
+  }
+  else {
+    em <- purrr::map(names(details$ems), ~import_emulator_from_json(details = list(data = input_data, em = details$ems[[.]]))[[1]]) |>
+      setNames(purrr::map_chr(details$ems, "out.name"))
+  }
+  return(em)
+}
+
+#' Determine Principle Outputs
+#'
+#' Given model outputs, determine those which are most informative for emulation.
+#'
+#' For models with large numbers of outputs, it may not be useful or meaningful
+#' to emulate every output at every wave; particularly at early waves, the main
+#' effects can often be explained by a small number of model outputs. This
+#' function determines those outputs which contribute most highly to the model
+#' variation across the space.
+#'
+#' Two cut-off points for informative outputs are available: \code{max_vars}
+#' allows one to limit the number of outputs emulated, while \code{var_cut}
+#' will continue to select outputs until a given proportion of variation has
+#' been explained. By default, no maximum number of variables is imposed and
+#' the desired variation explained is 95% of the total.
+#'
+#' The output is a list of two elements: the first, a set of variable names
+#' ordered by variance explained (the first being the most informative); the
+#' second a record of the cumulative variance explained upon inclusion of each
+#' of the outputs.
+#'
+#' @param data The model outputs
+#' @param max_vars The maximum number of outputs allowed in the output
+#' @param var_cut The desired proportion of variance explained
+#'
+#' @returns A list \code{list(ordered_variables, cumulative_variance)}
+#'
+#' @examples
+#' # Simple example using SIR data
+#' sir_data <- rbind.data.frame(SIRSample$training, SIRSample$validation)
+#' # Selects nS, nR as informative
+#' prin_vars(sir_data)
+#' # Pick only the first: max_vars overrides var_cut
+#' prin_vars(sir_data, max_vars = 1, var_cut = 1)
+#'
+#'
+#' @export
+prin_vars <- function(data, max_vars = length(data), var_cut = 0.95) {
+  selected_vars <- c()
+  num_vars <- length(data)
+  aggreg_r2 <- c()
+  tr <- c()
+  cum_var <- c()
+  if (!is.null(var_cut) && is.numeric(var_cut)) {
+    if (var_cut < 0 || var_cut > 1)
+      var_cut <- 1
+  }
+  conditioned_cor <- cor(data)
+  all_vars = names(data)
+  unselected_vars = names(data)
+  for (i in seq_len(max_vars)) {
+    agg_r2 <- rowSums(conditioned_cor^2)
+    max_r2 <- which.max(agg_r2)
+    aggreg_r2 <- c(aggreg_r2, agg_r2[max_r2])
+    selected_vars = c(selected_vars, all_vars[max_r2])
+    all_vars <- all_vars[-max_r2]
+    S22 <- conditioned_cor[-max_r2, -max_r2]
+    S21 <- conditioned_cor[-max_r2, max_r2]
+    conditioned_cor <- S22 - outer(S21, S21, "*")/conditioned_cor[max_r2, max_r2]
+    new_tr <- sum(diag(conditioned_cor))
+    tr <- c(tr, new_tr)
+    cum_var <- c(cum_var, 1 - new_tr/num_vars)
+    if (!is.null(var_cut) && is.numeric(var_cut)) {
+      if (cum_var[length(cum_var)] >= var_cut)
+        break
+    }
+  }
+  return(list(ordered_variables = selected_vars, cumulative_variance = cum_var))
+}
+
 # Pre-submission questions for CRAN submission
 release_questions <- function() { # nocov start
   c(
